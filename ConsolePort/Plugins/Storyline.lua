@@ -4,7 +4,7 @@
 -- fit the art style of ConsolePort, instead of Storyline. 
 
 local _, db = ...
-ConsolePort:AddPlugin('Storyline', function(self)
+ConsolePort:AddPlugin('Storyline', function(self) 
 	-----------------------------------------
 	local Frame = Storyline_NPCFrame
 	-----------------------------------------
@@ -22,7 +22,7 @@ ConsolePort:AddPlugin('Storyline', function(self)
 	-----------------------------------------------
 	-- Corners
 	-----------------------------------------------
-	region = Frame.BorderTopLeft
+	region = Frame.BorderTopLeft or BorderTopLeft
 		region:SetDrawLayer("OVERLAY", 7)
 		region:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\UIAsset")
 		region:SetTexCoord(132/1024, 198/1024, 16/1024, 84/1024)
@@ -30,7 +30,7 @@ ConsolePort:AddPlugin('Storyline', function(self)
 		region:ClearAllPoints()
 		region:SetPoint("TOPLEFT", 8, -10)
 		region:Show()
-	region = Frame.BorderTopRight
+	region = Frame.BorderTopRight or BorderTopRight
 		region:SetDrawLayer("OVERLAY", 7)
 		region:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\UIAsset")
 		region:SetTexCoord(198/1024, 264/1024, 16/1024, 84/1024)
@@ -38,7 +38,7 @@ ConsolePort:AddPlugin('Storyline', function(self)
 		region:ClearAllPoints()
 		region:SetPoint("TOPRIGHT", -9, -10)
 		region:Show()
-	region = Frame.BorderBottomLeft
+	region = Frame.BorderBottomLeft or BorderBottomLeft
 		region:SetDrawLayer("OVERLAY", 7)
 		region:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\UIAsset")
 		region:SetTexCoord(0/1024, 66/1024, 16/1024, 84/1024)
@@ -46,7 +46,7 @@ ConsolePort:AddPlugin('Storyline', function(self)
 		region:ClearAllPoints()
 		region:SetPoint("BOTTOMLEFT", 8, 10)
 		region:Show()
-	region = Frame.BorderBottomRight
+	region = Frame.BorderBottomRight or BorderBottomRight
 		region:SetDrawLayer("OVERLAY", 7)
 		region:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\UIAsset")
 		region:SetTexCoord(66/1024, 132/1024, 16/1024, 84/1024)
@@ -239,7 +239,9 @@ ConsolePort:AddPlugin('Storyline', function(self)
 		region:GetNormalTexture():SetDesaturated(true)
 
 	region = Storyline_NPCFrameLock
+	if region then
 		region:GetNormalTexture():SetDesaturated(true)
+	end
 
 	region = Storyline_NPCFrameConfigButton
 		region.Icon:SetDesaturated(true)
@@ -389,8 +391,10 @@ ConsolePort:AddPlugin('Storyline', function(self)
 	-----------------------------------------------
 	-- Custom model lighting
 	-----------------------------------------------
-	Storyline_NPCFrameModelsMe:SetLight(true, false, -100, -300, -500, 0.25, 1, 1, 1, 100, 1,1,1)
-	Storyline_NPCFrameModelsYou:SetLight(true, false, -300, -300, -500, 0.25, 1, 1, 1, 100, 1,1,1)
+	--Storyline_NPCFrameModelsMe:SetLight(true, false, -100, -300, -500, 0.25, 1, 1, 1, 100, 1,1,1)
+	Storyline_NPCFrameModelsMe:SetLight(-0.17, -0.51, -0.85, 0.25,  1.0,  1.0,  0,     0,     0)
+	--Storyline_NPCFrameModelsYou:SetLight(true, false, -300, -300, -500, 0.25, 1, 1, 1, 100, 1,1,1)
+	Storyline_NPCFrameModelsYou:SetLight(-0.46, -0.46, -0.76, 0.25, 1.0,  1.0,  0,     0,     0)
 
 	-----------------------------------------------
 	-- ConsolePort hooking

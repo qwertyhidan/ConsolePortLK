@@ -561,40 +561,51 @@ function Atlas.BindingMeta:RefreshBindings()
 	if numBindings ~= bindingCounter then
 		local bindings = self.Bindings
 		local headers = self.Headers
-
+		
 		-- wipe all current bindings, since indices may have changed
 		wipe(bindings)
 		wipe(headers)
 
-		for i=1, numBindings do
-			local id, header = GetBinding(i)
+		local currentHeader = nil
 
-			-- link bindings to their respective header, so reverse lookup can be performed
-			headers[id] = header
+		for i = 1, numBindings do
+			local id, key = GetBinding(i)
+			-- Check if this is a header row
+			if id and id:match("^HEADER_") then
+				if id:match("^HEADER_BLANK") then
+					-- Merge all blank headers into a single Uncategorized header.
+					currentHeader = db.TUTORIAL.BIND.UNCATEGORIZED
+					bindings[currentHeader] = bindings[currentHeader] or {}
+				elseif id:match("^HEADER_CP_") then
+					-- skip controller headers entirely
+					currentHeader = "CP_IGNORED"
+				else
+					local bHeader = "BINDING_"..id
+					local hTitle = _G[bHeader] or _G[id] or id
+					currentHeader = hTitle
+					bindings[hTitle] = bindings[hTitle] or {}
+				end
 
-			local binding = _G[bindPrefix..id]
-			local name = binding or _G[sortPrefix..id]
-			-- if the binding has a designated header
-			if header then
-				-- use the header title if there is one.
-				local hTitle = _G[header] or header
-				local category = bindings[hTitle]
-				if not category then
-					category = {}
-					bindings[hTitle] = category
+			elseif id then
+				-- Normal binding row
+				local name = _G[bindPrefix..id] or _G[sortPrefix..id] or id
+
+				-- Track reverse lookup: which header this binding belongs to
+				if currentHeader and  currentHeader == "CP_IGNORED" then
+					-- DO nothing
+				elseif currentHeader then
+					headers[id] = currentHeader
+					tinsert(bindings[currentHeader], { name = name, binding = id })
+				else
+					-- If no header has been seen yet, drop into "Other"
+					local otherCategory = bindings[db.TUTORIAL.BIND.OTHER]
+					if not otherCategory then
+						otherCategory = {}
+						bindings[db.TUTORIAL.BIND.OTHER] = otherCategory
+					end
+					headers[id] = db.TUTORIAL.BIND.OTHER
+					tinsert(otherCategory, { name = name, binding = id })
 				end
-				-- add binding to its designated category table, omit binding index if not an actual binding
-				category[#category + 1] = {name = name, binding = id}
-			-- else check that this isn't (1) a header which isn't blank and is not a controller header or (2) just a header
-			elseif ( id:match("^HEADER") and not id:match("^HEADER_BLANK") and not id:match("^CP_") ) or ( not id:match("^HEADER") ) then
-				-- at this point, the binding definitely belongs in the "Other" category
-				local otherCategory = bindings["Other"]
-				if not otherCategory then
-					otherCategory = {}
-					bindings["Other"] = otherCategory
-				end
-				-- add binding to the "Other" table, omit binding index if not an actual binding
-				otherCategory[#otherCategory + 1] = {name = name, binding = id}
 			end
 		end
 		-- scrub base controller bindings, since they're not relevant.
@@ -689,68 +700,66 @@ Atlas.GetBindingMetaButton = function(name, parent, config)
 end
 
 ---------------------------------------------------------------
-
+---------------------------------------------------------------
 Atlas.GetRoundActionButton = function(name, isCheck, parent, size, templates, notSecure)
-	if InCombatLockdown() and not notSecure then
-		error("Atlas.GetRoundActionButton: SecureActionButtonTemplate cannot be inherited in combat!", 2)
-	elseif not name or isCheck == nil or not parent then
-		error("Usage: Atlas.GetRoundActionButton(name, isCheck, parent[ [, size,] templates]): Buttons without name or parent not supported!", 2)
-	else
-		local template
+    if InCombatLockdown() and not notSecure then
+        error("Atlas.GetRoundActionButton: SecureActionButtonTemplate cannot be inherited in combat!", 2)
+    elseif not name or isCheck == nil or not parent then
+        error("Usage: Atlas.GetRoundActionButton(name, isCheck, parent[ [, size,] templates]): Buttons without name or parent not supported!", 2)
+    end
 
-		if notSecure then
-			template = "ActionButtonTemplate"
-		else
-			template = "ActionButtonTemplate, SecureActionButtonTemplate"
-		end
-		
-		if templates and type(templates) == "string" then
-			template = template..", "..templates
-		elseif templates then
-			error("Usage: Atlas.GetRoundActionButton(name, isCheck, parent[ [, size,] templates]): Templates must be of string type!", 2)
-		end
+    local template = notSecure and "ActionButtonTemplate" or "ActionButtonTemplate, SecureActionButtonTemplate"
+    if templates and type(templates) == "string" then
+        template = template .. ", " .. templates
+    end
 
-		local button = CreateFrame(isCheck and "CheckButton" or "Button", name, parent, template)
+    local button = CreateFrame(isCheck and "CheckButton" or "Button", name, parent, template)
+    local size = size or 64
+    button:SetSize(size, size)
 
-		--button.icon:SetMask("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Mask")
-		button.PushedTexture = button:GetPushedTexture()
+    local buttonName = button:GetName()
+    local cooldown = _G[buttonName .. "Cooldown"]
+    local normalTexture = _G[buttonName .. "NormalTexture"]
+	local icon = _G[buttonName .. "Icon"] 
+    
+    local pushedTexture = button:GetPushedTexture()
+    local highlightTexture = button:GetHighlightTexture()
+    local checkedTexture = button:GetCheckedTexture()
+    
+    if normalTexture then
+        normalTexture:SetAlpha(0)
+    end
 
+    local shadow = button:CreateTexture(nil, "BACKGROUND")
+    shadow:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\NormalShadow")
+    shadow:SetSize(size * (82 / 64), size * (82 / 64))
+    shadow:SetPoint("CENTER", 0, -6)
+    shadow:SetAlpha(0.75)
 
-		button.NormalTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Normal")
-		button.PushedTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Pushed")
+    local maskOverlay = button:CreateTexture(nil, "ARTWORK")
+    maskOverlay:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Normal")
+    maskOverlay:SetAllPoints(button)
+    
+    pushedTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Pushed")
+    highlightTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Hilite")
+    if isCheck then
+        checkedTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Hilite")
+    end
 
-		button.NormalTexture:ClearAllPoints()
-		button.NormalTexture:SetPoint("CENTER", 0, 0)
+    if cooldown then
+        cooldown:ClearAllPoints()
+        cooldown:SetPoint("CENTER")
+        cooldown:SetSize(size, size)
+        cooldown:SetDrawEdge(false)
+    end
 
-
-		button:GetHighlightTexture():SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Hilite")
-
-		if isCheck then
-			button:GetCheckedTexture():SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Hilite")
-		end
-
-		button.cooldown:SetSwipeTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Normal")
-		button.cooldown:SetBlingTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Bling")
-
-		local size = size or 64
-
-		button.cooldown:SetSwipeTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Normal")
-		button.cooldown:SetBlingTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\Bling")
-		button.cooldown:ClearAllPoints()
-		button.cooldown:SetPoint("CENTER")
-		button.cooldown:SetSize(size, size)
-		button.cooldown:SetDrawEdge(false)
-
-		button:SetSize(size, size)
-		button.NormalTexture:SetSize(size, size)
-		button.PushedTexture:SetSize(size, size)
-
-		button.ShadowTexture = button:CreateTexture(nil, "BACKGROUND")
-		button.ShadowTexture:SetTexture("Interface\\AddOns\\ConsolePort\\Textures\\Button\\NormalShadow")
-		button.ShadowTexture:SetSize(size * (82 / 64), size * (82 / 64))
-		button.ShadowTexture:SetPoint("CENTER", 0, -6)
-		button.ShadowTexture:SetAlpha(0.75)
-
-		return button
-	end
+	button.Cooldown = cooldown
+	button.NormalTexture = normalTexture
+	button.PushedTexture = pushedTexture
+	button.CheckedTexture = checkedTexture
+	button.Shadow = shadow
+	button.MaskOverlay = maskOverlay
+	button.icon = icon
+    
+    return button
 end

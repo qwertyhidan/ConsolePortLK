@@ -271,8 +271,8 @@ local ENV_RADIAL = {
 	---------------------------------------------------------------
 	['_preclick'] = [[
 		self:ClearBinding('BUTTON1')
-		control:RunAttribute('_onuse', down)
-		self:SetAttribute('type', nil) 
+		control:RunAttribute('_onuse', down, button)
+		self:SetAttribute('type', nil)  
 		 
 		if not down then
 			local button = self:GetFrameRef(control:RunAttribute('_getindex'))
@@ -290,7 +290,12 @@ local ENV_RADIAL = {
 	]];
 	---------------------------------------------------------------
 	['_onuse'] = [[
-		self:SetAttribute('toggled', ...)
+		local istoggled, button = ...
+		self:SetAttribute('toggled', istoggled)
+
+		if(button) then 
+			self:SetAttribute('ActivePreset', button == "LeftButton" and 1 or button)
+		end
 
 		if self:GetAttribute('toggled') then
 			control:RunFor(HANDLE, HANDLE:GetAttribute('hBind'), self:GetName())
@@ -322,8 +327,8 @@ local ENV_RADIAL = {
 		end
 	]];
 	---------------------------------------------------------------
-	['_ondoubleclick'] = [[
-		control:RunAttribute('_onuse', true)
+	['_ondoubleclick'] = [[ 
+		control:RunAttribute('_onuse', true, button)
 		control:RunAttribute('_oncursor', true)
 	]];
 	---------------------------------------------------------------
@@ -373,7 +378,7 @@ function HANDLE:RegisterFrame(frame, id)
 	assert(IsValidFrame(frame), 'Invalid frame registered on radial handler.')
 	self:SetFrameRef(id or frame:GetName(), frame) 
 
-	if(CPAPI.IsAscension()) then
+	if(CPAPI.IsCustomClient()) then
 		SecureHandlerSetFrameRef(frame, 'HANDLE', self)
 		SecureHandlerExecute(frame, [[HANDLE = self:GetFrameRef('HANDLE'); BIT = newtable()]])
 	else

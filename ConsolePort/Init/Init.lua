@@ -17,6 +17,11 @@ db.SECURE 	= {}
 db.PANELS 	= {}
 db.PLUGINS 	= {}
 
+db.PLUGINCHECKS = {}
+db.PLUGINCHECKS.IsBagNode = {}
+db.PLUGINCHECKS.IsSpellNode = {} 
+db.PLUGINCHECKS.IsMerchantNode = {}
+
 ---------------------------------------------------------------
 -- Popup functions 
 ---------------------------------------------------------------
@@ -40,10 +45,8 @@ end
 
 ---------------------------------------------------------------
 
-
-
 ---------------------------------------------------------------
--- Ascension workarounds
+-- Custom client workarounds
 ---------------------------------------------------------------
 
 local function FixSecureHandler(object)
@@ -60,8 +63,8 @@ local function FixSecureHandler(object)
     end
 end
 
-if CPAPI.IsAscension() then  
-	-- for some weird reason, the SecureHandler methods are not merged with these frames.
+if CPAPI.IsCustomClient() then  
+	-- for some weird reason, in some custom clients, the SecureHandler methods are not merged with these frames.
 	FixSecureHandler(ConsolePortRaidCursor)
 	FixSecureHandler(ConsolePortEasyMotionButton)
 	FixSecureHandler(ConsolePortPager)
@@ -69,12 +72,9 @@ if CPAPI.IsAscension() then
 	FixSecureHandler(ConsolePortUIHandle)
 	FixSecureHandler(ConsolePortUtilityToggle)
 end
-
 ---------------------------------------------------------------
 
-
 function ConsolePort:LoadSettings()
-
 	local selectController --, newUser
 
 	-----------------------------------------------------------
@@ -298,15 +298,30 @@ function ConsolePort:CheckLoadedAddons()
 			end
 		end
 	end
-	for name, loadPlugin in pairs(db.PLUGINS) do
-		if IsAddOnLoaded(name) then
-			loadPlugin(self)
+	for name, pluginData in pairs(db.PLUGINS) do
+		if pluginData.condition then
+			pluginData.loader(self)
+			loaded[name] = true
+		elseif IsAddOnLoaded(name) then
+			pluginData.loader(self)
 			loaded[name] = true
 		end
 	end
 	for name in pairs(loaded) do
 		db.PLUGINS[name] = nil
 	end
+end
+
+function ConsolePort:RunPluginNodeChecks(checkType, node)
+    if db.PLUGINCHECKS[checkType] then
+        for i, checkFunc in ipairs(db.PLUGINCHECKS[checkType]) do 
+            local success, result = pcall(checkFunc, node)
+            if success and result then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 function ConsolePort:CreateSecureButtons()

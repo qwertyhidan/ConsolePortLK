@@ -29,7 +29,7 @@ Bar:SetFrameRef('Mouse', ConsolePortMouseHandle)
 Bar:Execute([[
 	bindings = newtable()
 	reticleSpellManifest = newtable()
-	reticleMacroString = '/run UnitXP("target", "castReticle")' -- reticleMacroString = '/stopspelltarget\n/cast [@cursor] %s'
+	reticleMacroString = '/run if C_ConsoleXP then C_ConsoleXP:CastReticle() end' -- reticleMacroString = '/stopspelltarget\n/cast [@cursor] %s'
 	bar = self
 	cursor = self:GetFrameRef('Cursor')
 	mouse = self:GetFrameRef('Mouse')
@@ -178,6 +178,15 @@ function Bar:OnLoad(cfg, benign)
 		self:FadeIn(self:GetAlpha())
 	end
 
+	
+	if CPAPI.CPCC then
+		if cfg.enablecooldowntext then 
+			CPAPI.CPCC:Enable()
+		else
+			CPAPI.CPCC:Disable()
+		end
+	end
+
 	-- Bar vis driver
 	local visDriver = '[combat][nocombat] show; hide'
 	if cfg.combathide then
@@ -194,35 +203,6 @@ function Bar:OnLoad(cfg, benign)
 		RegisterStateDriver(Bar.Pet, 'visibility', '[pet,nocombat] show; hide')
 	else
 		RegisterStateDriver(Bar.Pet, 'visibility', '[pet] show; hide')
-	end
-
-	if cfg.hidestance then
-		Bar.Stance:Hide()
-	else
-		STANCE_COUNT = GetNumShapeshiftForms(); 
-		if(not InCombatLockdown()) then
-			if(STANCE_COUNT > 0) then			
-				Bar.Stance:UpdateButtons()
-				Bar.Stance:Update()
-				Bar.Stance:SetupEverything()
-				Bar.Stance:Show();
-				Bar.Stance.initialized = true
-			end 
-		else
-			Bar.Stance.initialized = false 
-		end
-	end
-
-	if cfg.hidetotem then
-		Bar.Totem:Hide()
-	else
-		TOTEM_COUNT = MultiCastActionBarFrame.numActiveSlots; 	
-		if TOTEM_COUNT > 0 then	
-        	Bar.Totem:UpdateButtons()
-       		Bar.Totem:Update()
-        	Bar.Totem:SetupEverything()
-			Bar.Totem:Show(); 
-		end 
 	end
 
 	-- Show class tint line
@@ -254,12 +234,8 @@ function Bar:OnLoad(cfg, benign)
 
 	if cfg.lockpet then
 		self.Pet:RegisterForDrag()
-		self.Totem:RegisterForDrag()
-		self.Stance:RegisterForDrag()
 	else
 		self.Pet:RegisterForDrag('LeftButton')
-		self.Totem:RegisterForDrag('LeftButton')
-		self.Stance:RegisterForDrag('LeftButton')
 	end
 
 	-- Lock/unlock bar

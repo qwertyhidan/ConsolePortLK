@@ -52,10 +52,6 @@ local function GetAddonSettings()
 			state = db('raidCursorDirect'),
 		},
 		{	desc = L.CONVENIENCE },
-		{	cvar = 'autoExtra',
-			desc = L.AUTOEXTRA,
-			state = db('autoExtra'),
-		},
 		{	cvar = 'autoLootDefault',
 			desc = L.AUTOLOOT,
 			state = db('autoLootDefault'),
@@ -305,17 +301,17 @@ function WindowMixin:Save()
 	end
 
 	-- interact button lite
-	if 	( not self.IBFullModule.Enable:GetChecked() ) and
+	if 	--[==[( not self.IBFullModule.Enable:GetChecked() ) and --]==]
 		( self.IBLiteModule.Enable:GetChecked() ) and 
 		( self.IBLiteModule.BindCatcher.CurrentButton ) then
-		db('lootWith', self.IBLiteModule.BindCatcher.CurrentButton)
+		db('interactCxpWith', self.IBLiteModule.BindCatcher.CurrentButton)
 	else
 		self.IBLiteModule.Enable:SetChecked(false)
-		db('lootWith', false)
+		db('interactCxpWith', false)
 	end
 
 	-- smart interaction
-	if db('interactWith') or db('lootWith') then
+	if db('interactWith') then
 		db('interactCache',     self.SmartInteract.Enable:GetChecked() and true or false)
 		db('interactScrape',    self.SmartInteract.Scrape:GetChecked() and true or false)
 		db('nameplateNameOnly', self.SmartInteract.Plates:GetChecked() and true or false)
@@ -427,11 +423,11 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 
 	local function GetHelpButton(parent, text)
 		parent.HelpButton = CreateFrame('Button', '$parentHelpButton', parent)
-		parent.HelpButton:SetSize(64, 64)
+		parent.HelpButton:SetSize(48, 48)
 		parent.HelpButton.Text = text
-		parent.HelpButton:SetNormalTexture('Interface\\Common\\help-i')
-		parent.HelpButton:SetHighlightTexture('Interface\\Common\\help-i')
-		parent.HelpButton:SetPoint('TOPRIGHT', -4, -4)
+		parent.HelpButton:SetNormalTexture('Interface\\AddOns\\ConsolePort\\Textures\\Interface\\help-i')
+		parent.HelpButton:SetHighlightTexture('Interface\\AddOns\\ConsolePort\\Textures\\Interface\\help-i')
+		parent.HelpButton:SetPoint('TOPRIGHT', -8, -8)
 		parent.HelpButton:SetScript('OnEnter', function(self)
 			GameTooltip:Hide()
 			GameTooltip:SetOwner(self, 'ANCHOR_TOP')
@@ -520,17 +516,16 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 	do local IBFullModule = Controls.IBFullModule
 
 		function IBFullModule:OnShow()
-			IBFullModule:Hide() -- disable for now
-
 			if self.Enable:GetChecked() then
 				FadeOut(self.Hand, .3, self.Hand:GetAlpha(), 0)
 				FadeOut(self.Dude, .3, self.Dude:GetAlpha(), 0)
 				self.NPC:Show()
 				self.BindWrapper:Show()
-				self:SetHeight(270 + 234)
+				self:SetHeight(270 + 234 - 140)
 				self.Recommend:Show()
-				SmartInteract:SetAnchor(self, -100)
-				Controls.IBLiteModule:Hide()
+				SmartInteract:Clear(self) --SmartInteract:SetAnchor(self, -100)
+				Controls.IBLiteModule:ClearAllPoints()
+				Controls.IBLiteModule:SetPoint('TOPLEFT', self, 0, -335)
 			else
 				self.NPC:Hide()
 				self.BindWrapper:Hide()
@@ -538,8 +533,9 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 				self.Recommend:Hide()
 				FadeIn(self.Hand, .3, self.Hand:GetAlpha(), 1)
 				FadeIn(self.Dude, .3, self.Dude:GetAlpha(), 1)
-				SmartInteract:Clear(self)
-				Controls.IBLiteModule:Show()
+				SmartInteract:Clear(self) 
+				Controls.IBLiteModule:ClearAllPoints()
+				Controls.IBLiteModule:SetPoint('TOPLEFT', self, 0, -250)
 			end
 
 			-- approximate the behaviour of the interact button here.
@@ -638,7 +634,7 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 		}
 
 		for _, setup in pairs(interactButtons) do
-			GetCheckButton(IBFullModule, setup.name, setup.point, setup.label, setup.setting):Disable() -- disabled for now
+			GetCheckButton(IBFullModule, setup.name, setup.point, setup.label, setup.setting):Enable()
 		end
  
 	end
@@ -653,7 +649,7 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 		IBLiteModule.BindWrapper.Close:Hide()
 
 		IBLiteModule.Description = IBLiteModule:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
-		IBLiteModule.Description:SetPoint('BOTTOM', 0, 40)
+		IBLiteModule.Description:SetPoint('BOTTOM', 0, 70)
 		IBLiteModule.Description:SetText(TUTORIAL.CONFIG.IBLITEDESC)
 
 		IBLiteModule.BindCatcher = db.Atlas.GetFutureButton('$parentBindCatcher', IBLiteModule.BindWrapper, nil, nil, 260)
@@ -667,17 +663,20 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 		IBLiteModule.Enable.Text = IBLiteModule.Enable:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
 		IBLiteModule.Enable.Text:SetPoint('LEFT', 30, 0)
 		IBLiteModule.Enable.Text:SetText(TUTORIAL.CONFIG.INTERACTCHECK)
-		IBLiteModule.Enable:SetChecked(Settings.lootWith) 
+		IBLiteModule.Enable:SetChecked(Settings.interactCxpWith) 
 		IBLiteModule.Enable:SetPoint('TOPLEFT', 24, -48)
 		IBLiteModule.Enable:SetScript('OnClick', function(self) self:GetParent():OnShow() end)
 
-		function IBLiteModule:OnShow() 
-			IBLiteModule:Hide() --disable for now
+		function IBLiteModule:OnShow()
+			if not (C_ConsoleXP or QueueInteract) then
+				IBLiteModule:Hide() -- - Disable this module when the client lacks an Interact implementation.
+			end
+			
+			self:SetHeight(230)
 			if self.Enable:GetChecked() then
-				FadeOut(self.Dude, 0.5, self.Dude:GetAlpha(), 0.1)
-				self.Description:Hide()
+				FadeOut(self.Dude, 0.5, self.Dude:GetAlpha(), 0.1) 
 				self.BindWrapper:Show()
-				SmartInteract:SetAnchor(self, -60)
+				SmartInteract:Clear(self) --SmartInteract:SetAnchor(self, -60)
 			else
 				FadeIn(self.Dude, 0.5, self.Dude:GetAlpha(), .35)
 				self.Description:Show()
@@ -694,7 +693,7 @@ db.PANELS[#db.PANELS + 1] = {name = 'Controls', header = SETTINGS, mixin = Windo
 		IBLiteModule.Dude:SetSize(200, 200)
 		IBLiteModule.Dude:SetAlpha(0.25)
 
-		IBLiteModule.BindCatcher.cvar = 'lootWith'
+		IBLiteModule.BindCatcher.cvar = 'interactCxpWith'
 		IBLiteModule.BindCatcher.formatLine = TUTORIAL.CONFIG.INTERACTASSIGNED_B
 
 		Mixin(IBLiteModule.BindCatcher, Catcher)

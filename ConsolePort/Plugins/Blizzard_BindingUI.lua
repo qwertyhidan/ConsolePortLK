@@ -7,7 +7,7 @@ local _, db = ...
 
 ConsolePort:AddPlugin('Blizzard_BindingUI', function(self)
 	local 	kbF, okayButton, popup = 
-			KeyBindingFrame, KeyBindingFrame.okayButton
+			KeyBindingFrame, KeyBindingFrameOkayButton
 
 	local function OnAccept()
 		kbF:Hide()

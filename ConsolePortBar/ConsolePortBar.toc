@@ -19,8 +19,6 @@ Custom\Blizzard.lua
 Custom\ConsolePort.lua
 
 Components\Pet.lua
-Components\Stance.lua
-Components\Totem.lua
 Components\MenuBar.lua
 Components\WatchBars.xml
 Components\ActionbarPlacer.lua

@@ -3,6 +3,7 @@ local r, g, b = ConsolePort:GetData().Atlas.GetNormalizedCC()
 --------------------------------------------------------
 local defaultIcons
 do  local custom = [[Interface\AddOns\ConsolePortBar\Textures\Icons\%s]]
+	local customcp = [[Interface\AddOns\ConsolePort\Textures\Icons\%s]]
 	local client = [[Interface\Icons\%s]]
 	local isRetail = CPAPI:IsRetailVersion()
 	defaultIcons = {
@@ -41,6 +42,7 @@ do  local custom = [[Interface\AddOns\ConsolePortBar\Textures\Icons\%s]]
 	['CLICK ConsolePortRaidCursorFocus:LeftButton']  = custom:format('Group'),
 	['CLICK ConsolePortRaidCursorTarget:LeftButton'] = custom:format('Group'),
 	['CLICK ConsolePortUtilityToggle:LeftButton']    = custom:format('Ring'),
+	['CLICK ConsolePortTotemToggle:LeftButton']		 = customcp:format('Totems'),
 	----------------------------
 	}
 end
@@ -64,92 +66,35 @@ local classArt = {
 --------------------------------------------------------
 local defaultReticleSpellIDs = {
 	DEATHKNIGHT = {
-		43265, -- Death and Decay
-		152280, -- Defile
-	},
-	DEMONHUNTER = {
-		189110, -- Infernal Strike
-		191427, -- Metamorphosis (Havoc)
-		202137, -- Sigil of Silence
-		202138, -- Sigil of Chains
-		204596, -- Sigil of Flame
-		207684, -- Sigil of Misery
+		43265, 49936, 49937, 49938, 	  					-- Death and Decay
 	},
 	DRUID = {
-		102793, -- Ursol's Vortex
-		191034, -- Starfall
-		205636, -- Force of Nature
-		202770, -- Fury of Elune
+		16914, 17401, 17402, 27012, 48467,					-- Hurricane
+		33831,												-- Force of Nature
 	},
 	HUNTER = {
-		1543, -- Flare
-		6197, -- Eagle Eye
-		13813, -- Explosive Trap
-		109248, -- Binding Shot
-		162488, -- Steel Trap
-		187650, -- Freezing Trap
-		187698, -- Tar Trap
-		194277, -- Caltrops
-		206817, -- Sentinel
-		236776, -- Hi-Explosive Trap
+		60192, 									 			-- Freezing Arrow
+		1510, 14294, 14925, 27022, 58431, 58434, 			-- Volley
+		1543, 												-- Flare
 	},
 	MAGE = {
-		2120, -- Flamestrike
-		33395, -- Freeze
-		113724, -- Ring of Frost
-		153561, -- Meteor
-		42940, -- Blizzard
-	},
-	MONK = {
-		115313, -- Summon Jade Serpent Statue
-		115315, -- Summon Black Ox Statue
-		116844, -- Ring of Peace
-	},
-	PALADIN = {
-		114158, -- Light's Hammer
-	},
-	PRIEST = {
-		32375, -- Mass Dispel
-		81782, -- Power Word: Barrier
-		121536, -- Angelic Feather
-	},
-	ROGUE = {
-		1725, -- Distract
-		185767, -- Cannonball Barrage
-		195457, -- Grappling Hook
-	},
-	SHAMAN = {
-		2484, -- Earthbind Totem
-		6196, -- Far Sight
-		61882, -- Earthquake
-		73920, -- Healing Rain
-		98008, -- Spirit Link Totem (Resto Shaman baseline)
-		51485, -- Earthgrab Totem (Shaman talent, replaces Earthbind Totem)
-		192058, -- Lightning Surge Totem (Shaman talent)
-		192222, -- Liquid Magma Totem (Elemental Shaman talent)
-		196932, -- Voodoo Totem (Shaman talent)
-		192077, -- Wind Rush Totem (Shaman talent)
-		204332, -- Windfury Totem (Shaman pvp talent)
-		207399, -- Ancestral Protection Totem (Resto Shaman Talent)
-		207778, -- Gift of the Queen (Resto Artifact)
-		215864, -- Rainfall
+		2120, 2121, 8422, 8423, 10215, 10216, 27086, 42925, -- Flamestrike
+		10, 6141, 8427, 10185, 10187, 27085, 42940,			-- Blizzard
 	},
 	WARLOCK = {
-		1122, -- Summon Infernal
-		5740, -- Rain of Fire
-		30283, -- Shadowfury
-		152108, -- Cataclysm
-	},
-	WARRIOR = {
-		6544, -- Heroic Leap
-		152277, -- Ravager (Arms)
-		228920, -- Ravager (Protection)
+		5740, 6219, 11667, 11678, 27212, 47819, 47820, 		-- Rain of Fire
 	},
 }
 --------------------------------------------------------
 
-function ab:GetBindingIcon(binding)
-	return ab.manifest.BindingIcons[binding]
+function ab:GetBindingIcon(binding) 
+    local customIcon = ConsolePort:GetUtilityRingIcon(binding)
+    if customIcon then
+        return customIcon
+    end
+
+    -- Fallback to default icons if no custom icon is found
+    return ab.manifest.BindingIcons[binding]
 end
 
 function ab:CreateManifest()
@@ -325,6 +270,10 @@ function ab:GetBooleanSettings(otherCFG)
 			cvar = 'lockpet',
 			toggle = cfg.lockpet,
 		},
+		{	desc = L.CFG_ENABLECDTEXT,
+			cvar = 'enablecooldowntext',
+			toggle = cfg.enablecooldowntext,
+		},
 		{	desc = L.CFG_HIDEINCOMBAT,
 			cvar = 'combathide',
 			toggle = cfg.combathide,
@@ -340,14 +289,6 @@ function ab:GetBooleanSettings(otherCFG)
 		{	desc = L.CFG_DISABLEPET,
 			cvar = 'hidepet',
 			toggle = cfg.hidepet,
-		},
-		{	desc = L.CFG_DISABLETOTEM,
-			cvar = 'hidetotem',
-			toggle = cfg.hidetotem,
-		},
-		{	desc = L.CFG_DISABLESTANCE,
-			cvar = 'hidestance',
-			toggle = cfg.hidestance,
 		},
 		{	desc = L.CFG_DISABLERETICLE,
 			cvar = 'disablecastonrelease',

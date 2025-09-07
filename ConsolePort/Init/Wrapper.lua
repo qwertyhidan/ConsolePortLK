@@ -722,42 +722,258 @@ function CPAPI.RoundCooldown_OnLoad(self)
 	 
 end 
 
-function CPAPI.RoundCooldown_OnUpdate(self, elapsed) 
-	if(self.timespent ~= nil) then
-		self.timespent = self.timespent + elapsed
-		if self.timespent >= self.duration then
-			self.timespent = nil
-			if(_G[_G[self.parentname]:GetParent():GetName().."Cooldown"]:IsShown()) then
-				_G[self.parentname].endanimation.Start()
-			end
-			return;
-		end
-		local value = self.timespent / self.duration 
-		_G[self.parentname].spinner:SetValue(value)
-	end
+-- OmniCC style cooldown text
+CPAPI.CPCC = CPAPI.CPCC or {}
+
+local CPCC = CPAPI.CPCC
+
+CPCC.db = {
+    enabled = true,
+    font = "Fonts\\FRIZQT__.TTF",
+    fontSize = 12,
+    fontFlags = "OUTLINE",
+    minDuration = 1.5,      -- ignore shorter cooldowns (GCD etc)
+    decimalThreshold = 10,  -- show decimals when < this many seconds
+    colorThresholds = {     -- (seconds) : color
+        red = 2,
+        yellow = 5,
+    },
+    popOnFinish = true,     -- scale pop when cooldown finishes
+    popScale = 1.6,
+    popDuration = 0.25,     -- seconds for pop animation
+}
+
+-- Internal tables
+CPCC.texts = CPCC.texts or {}   
+CPCC.meta = CPCC.meta or {} 
+
+
+local function formatTime(s)
+    if s <= 0 then return "" end
+    if s >= 3600 then
+        local hours = math.floor(s / 3600 + 0.5)
+        return string.format("%dh", hours)
+    elseif s >= 60 then
+        local mins = math.floor(s / 60 + 0.5)
+        return string.format("%dm", mins)
+    else
+        if s < CPCC.db.decimalThreshold then
+            -- one decimal place
+            return string.format("%.1f", s)
+        else
+            return string.format("%d", math.floor(s + 0.5))
+        end
+    end
+end
+
+local function chooseColor(remaining)
+    if remaining <= CPCC.db.colorThresholds.red then
+        return 1, 0.12, 0.12 -- red-ish
+    elseif remaining <= CPCC.db.colorThresholds.yellow then
+        return 1, 0.95, 0.12 -- yellow-ish
+    else
+        return 1, 1, 1 -- white
+    end
+end
+
+function CPCC:CreateTextFor(parentRCooldown)
+    if not parentRCooldown then return nil end
+    local name = parentRCooldown:GetName()
+    if not name then return nil end
+    if self.texts[name] then return self.texts[name] end
+
+    local holder = CreateFrame("Frame", name .. "OmniTextHolder", parentRCooldown)
+    holder:SetAllPoints(parentRCooldown)
+    holder:SetFrameLevel(parentRCooldown:GetFrameLevel() + 10) 
+
+    local fs = holder:CreateFontString(nil, "OVERLAY")
+    fs:SetFont(self.db.font, 24, self.db.fontFlags)
+    fs:SetPoint("CENTER", holder, "CENTER", 0, 0)
+    fs:SetJustifyH("CENTER")
+    fs:SetJustifyV("MIDDLE")
+    fs:SetAlpha(1)
+    fs:Show()
+
+    self.texts[name] = holder
+    self.texts[name].fontstring = fs
+
+    self.meta[name] = self.meta[name] or { start = 0, duration = 0, visible = false, pop = 0, popTimer = 0, baseScale = 1 }
+    return holder
+end
+
+function CPCC:StartCooldown(parentname, start, duration)
+    if not self.db.enabled then return end
+    if not parentname or not start or not duration then return end
+    if duration <= self.db.minDuration then
+        -- ignore
+        return
+    end
+
+    local rcool = _G[parentname]
+    if not rcool then return end
+
+    local fs = self:CreateTextFor(rcool)
+    local meta = self.meta[parentname]
+    meta.start = start
+    meta.duration = duration
+    meta.visible = true
+    meta.pop = 0
+    meta.popTimer = 0
+    fs:SetScale(meta.baseScale or 1)
+    fs:Show()
+end
+
+function CPCC:StopCooldown(parentname)
+    if not parentname then return end
+    local fs = self.texts[parentname]
+    local meta = self.meta[parentname]
+    if fs and meta then
+        fs:Hide()
+        meta.visible = false
+        meta.start = 0
+        meta.duration = 0
+        meta.pop = 0
+        meta.popTimer = 0
+    end
+end
+
+function CPCC:OnUpdate(parentname, elapsed)
+    if not self.db.enabled then return end
+    if not parentname then return end
+    local holder = self.texts[parentname]
+	local fs = holder.fontstring
+    local meta = self.meta[parentname]
+    if not fs or not meta then return end
+    if not meta.visible or meta.duration <= 0 then
+        if holder:IsShown() then holder:Hide() end
+        return
+    end
+
+    local now = GetTime()
+    local remaining = (meta.start + meta.duration) - now
+
+    if remaining <= 0 then
+        -- finished: trigger pop + hide after tiny delay
+        if self.db.popOnFinish then
+            meta.pop = self.db.popScale
+            meta.popTimer = self.db.popDuration
+        end
+
+        fs:SetText("")
+        holder:Hide()
+        meta.visible = false
+        meta.start = 0
+        meta.duration = 0
+        return
+    end
+
+    local text = formatTime(remaining)
+    fs:SetText(text)
+    local r,g,b = chooseColor(remaining)
+    fs:SetTextColor(r,g,b)
+
+    if meta.popTimer and meta.popTimer > 0 then
+        meta.popTimer = meta.popTimer - elapsed
+        local t = 1 - (meta.popTimer / self.db.popDuration)
+        local s = t * t * (3 - 2 * t)
+        local scale = (meta.baseScale or 1) + ( (self.db.popScale - (meta.baseScale or 1)) * (1 - s) )
+        holder:SetScale(scale)
+        if meta.popTimer <= 0 then
+            holder:SetScale(meta.baseScale or 1)
+            meta.pop = 0
+            meta.popTimer = 0
+        end
+    else
+        holder:SetScale(meta.baseScale or 1)
+    end
+end
+
+-- Enable / Disable API
+function CPCC:Enable()
+    self.db.enabled = true
+end
+
+function CPCC:Disable()
+    self.db.enabled = false
+    -- hide everything
+    for name, fs in pairs(self.texts) do
+        if fs then fs:Hide() end
+    end
+end
+
+function CPAPI.RoundCooldown_OnUpdate(self, elapsed)
+    if (self.timespent ~= nil) then
+        self.timespent = self.timespent + elapsed
+        if self.timespent >= self.duration then
+            self.timespent = nil
+            if (_G[_G[self.parentname]:GetParent():GetName() .. "Cooldown"]:IsShown()) then
+                _G[self.parentname].endanimation.Start()
+            end
+            CPCC:StopCooldown(self.parentname)
+            return
+        end
+        local value = self.timespent / self.duration
+        _G[self.parentname].spinner:SetValue(value)
+
+        CPCC:OnUpdate(self.parentname, elapsed)
+    end
 end
 
 function CPAPI.RoundCooldown_OnSetCooldown(self, start, duration)
-	local parentname = self:GetParent():GetName().."RCooldown"
-	local f = _G[parentname].spinner.f  
-	f.start = start
-	f.parentname = parentname
-	f.duration = duration
-	_G[f.parentname].spinner:SetAlpha(1)
-	f.timespent = GetTime() - start 
+    local parentname = self:GetParent():GetName() .. "RCooldown"
+    local f = _G[parentname].spinner.f
+    f.start = start
+    f.parentname = parentname
+    f.duration = duration
+    _G[f.parentname].spinner:SetAlpha(1)
+    f.timespent = GetTime() - start
+
+    if CPCC.db.enabled then
+        local rcool = _G[parentname]
+        if rcool then
+            CPCC:CreateTextFor(rcool)
+            CPCC:StartCooldown(parentname, start, duration)
+        end
+    end
 end
 
 function CPAPI.RoundCooldown_OnShowCooldown(self)
-	local parentname = self:GetParent():GetName().."RCooldown"
-	_G[parentname].spinner:SetAlpha(1) 
+    local parentname = self:GetParent():GetName() .. "RCooldown"
+    _G[parentname].spinner:SetAlpha(1)
+	
+    CPCC:CreateTextFor(_G[parentname])
 end
 
 function CPAPI.RoundCooldown_OnHideCooldown(self)
-	local parentname = self:GetParent():GetName().."RCooldown"
-	_G[parentname].spinner:SetAlpha(0) -- Hide without losing events 
+    local parentname = self:GetParent():GetName() .. "RCooldown"
+    _G[parentname].spinner:SetAlpha(0) -- Hide without losing events
+    CPCC:StopCooldown(parentname)
 end
 
--- Check if the client running is ascension client. there is probably a better way of doing this but it works.
-function CPAPI.IsAscension() 
-    return _G["AscensionTimer"] ~= nil
+------------------------------------------------------------------------------------
+-- Custom client workarounds
+------------------------------------------------------------------------------------
+CPAPI.CustomFrames = CPAPI.CustomFrames or {}
+
+CPAPI.CustomFrames.Ascension = {
+    ["SpellButton1"]   = "AscensionSpellbookFrameContentSpellsSpellButton1",
+    ["SpellBookFrame"] = "AscensionSpellbookFrame",
+    ["SpellBookOwner"] = "AscensionSpellbookFrameContentSpells",
+}
+
+-- Check if the client running is a customized client
+function CPAPI.IsCustomClient()
+    if AscensionTimer and GetAscensionDonationPoints then
+        return "Ascension"
+    end
+    return nil
+end
+
+-- Get the custom frame by name, returns nil if not found or not a custom client.
+function CPAPI.GetCustomFrame(name)
+    local client = CPAPI.IsCustomClient()
+    if not client then return nil end
+
+    local frames = CPAPI.CustomFrames[client]
+    return frames and _G[frames[name]] or nil
 end

@@ -472,9 +472,7 @@ function ConsolePort:GetDefaultAddonSettings(setting)
         ['CP_M1'] = 'CP_TL1',
         ['CP_M2'] = 'CP_TL2',
         ['CP_T1'] = 'CP_TR1',
-        ['CP_T2'] = 'CP_TR2',
-        -------------------------------
-        ['lootWith'] = 'CP_R_DOWN',
+        ['CP_T2'] = 'CP_TR2', 
         -------------------------------
         ['actionBarStyle'] = 4,
         -------------------------------
@@ -561,7 +559,8 @@ function ConsolePort:GetCustomBindings()
         {name = L.CP_UTILITY},
         {name = L.CP_UTILITYBELT, binding = 'CLICK ConsolePortUtilityToggle:LeftButton'},
         {name = L.CP_PETRING, binding = 'CLICK ConsolePortBarPet:MiddleButton'},
-        {name = L.CP_TOGGLEADDON, binding = 'CLICK ConsolePortLoader:LeftButton'},
+        {name = L.CP_TOGGLEADDON, binding = 'CLICK ConsolePortLoader:LeftButton'}, 
+        {name = L.CP_TOTEMFRAME, binding = 'CLICK ConsolePortTotemToggle:LeftButton'},
         -- Pager
         {name = L.CP_PAGER},
         {name = L.CP_PAGE2, binding = 'CLICK ConsolePortPager:2'},
@@ -696,6 +695,7 @@ function ConsolePort:GetDefaultUIFrames()
 			'StaticPopup4',
 			'TaxiFrame',
 			'HelpFrame',
+            'HelpMenuFrame',
 			'CoinPickupFrame',
 			'PVPParentFrame',
 			'QuestLogFrame',
@@ -708,16 +708,7 @@ function ConsolePort:GetDefaultUIFrames()
 			'GroupLootFrame1',
 			'GroupLootFrame2',
 			'GroupLootFrame3',
-			'GroupLootFrame4', 
-            'AddonPanel',
-            'AscensionCharacterFrame',
-            'AscensionSpellbookFrame',
-            'AscensionLFGFrame',
-            'Collections',
-            'EscapeMenu',
-            'PathToAscensionFrame', 
-            'SkillCardsFrame',
-            
+			'GroupLootFrame4',
 		},
 	}
 end
@@ -801,8 +792,8 @@ local cvars = { -- value = default
     interactHintLineVis     = {.5       ; 'Interact frame line texture alpha (0-1)'};
     interactHintNoLine      = {false    ; 'Disable interact frame line texture'};
     interactHintNoSticky    = {false    ; 'Disable nameplate anchoring'};
-    interactWith            = {false    ; 'Full interact button ID'};
-    lootWith                = {'CP_R_DOWN'; 'Lite interact button ID'};
+    interactWith            = {false    ; 'Standard interact button ID'};
+    interactCxpWith         = {false    ; 'ConsoleXP interact button ID'};
     --------------------------------------------------------------------------------------------------------
     -- Nameplate scraping properties
     nameplateCC             = {true     ; 'Show class colors on name-only nameplates'};

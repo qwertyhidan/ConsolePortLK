@@ -350,7 +350,23 @@ function ButtonMixin:SetBinding(binding) -- omit binding to clear
 	if not subSet then
 		set[self.name] = {}
 		subSet = set[self.name]
+	end 
+
+	-- we empty our preset.Binding table, so when the user reloads the game, their newly created binding isn't overwritten by
+	-- the utility ring preset binding.
+	if type(subSet[self.modifier]) == "string" then
+		local toggleValue = string.match(subSet[self.modifier], "^CLICK ConsolePortUtilityToggle:(.+)$")
+		if toggleValue then
+			local presetIndex = tonumber(toggleValue)
+			if presetIndex or toggleValue == "LeftButton" then
+				local preset = ConsolePortUtility[presetIndex or 1]
+				if preset and preset.Binding and next(preset.Binding) then
+					preset.Binding = {}
+				end
+			end
+		end
 	end
+
 	subSet[self.modifier] = binding
 	FadeOut(self.Line, 5, 1, 0.35)
 	self.SelectedTexture:Hide()

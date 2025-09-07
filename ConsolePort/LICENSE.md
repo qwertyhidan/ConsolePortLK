@@ -1,7 +1,7 @@
 The Artistic License 2.0
 
 Copyright (c) 2015 Sebastian Lindfors
-Copyright (c) 2024 Leandro Araujo Viana
+Copyright (c) 2025 Leandro Araujo Viana
 
      Everyone is permitted to copy and distribute verbatim copies
       of this license document, but changing it is not allowed.

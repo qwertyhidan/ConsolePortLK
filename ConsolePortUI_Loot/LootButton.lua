@@ -39,7 +39,7 @@ function LootButton:OnEnter()
 			tooltipBackdrop = backdrop
 		end
 		
-		if(not CPAPI.IsAscension()) then  -- Ascension FrameXML issue.
+		if(not CPAPI.IsCustomClient()) then  -- FrameXML issue.
 			GameTooltip:SetBackdrop(nil)
 		end	
 		

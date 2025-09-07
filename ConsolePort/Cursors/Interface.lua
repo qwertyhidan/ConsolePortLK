@@ -278,14 +278,14 @@ SafeOnEnter[ActionButton1:GetScript('OnEnter')] = function(self)
 	ActionButton_SetTooltip(self)
 end
 
-local SpellButton1 = CPAPI.IsAscension() and AscensionSpellbookFrameContentSpellsSpellButton1 or SpellButton1
+local SpellButton1 = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellButton1") or SpellButton1
 
 SafeOnEnter[SpellButton1:GetScript('OnEnter')] = function(self)
 	-- spellbook buttons push updates to the action bar controller in order to draw highlights
 	-- on actionbuttons that holds the spell in question. this taints the action bar controller.
 
-	local slot = CPAPI.IsAscension() and self.spell or SpellBook_GetSpellID(self:GetID())
-	local SpellBookFrame = CPAPI.IsAscension() and AscensionSpellbookFrame or SpellBookFrame 
+	local slot = CPAPI.IsCustomClient() and self.spell or SpellBook_GetSpellID(self:GetID())
+	local SpellBookFrame = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellBookFrame") or SpellBookFrame 
  
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	if ( GameTooltip:SetSpell(slot, SpellBookFrame.bookType) ) then 
@@ -390,6 +390,7 @@ function Cursor:Select(node, object, super, state)
 			Override:HorizontalScroll(Cursor, node)
 		end
 
+		if not self.Override then return end
 		for click, button in pairs(self.Override) do
 			for modifier in ConsolePort:GetModifiers() do
 				Override:Click(self, button, name or button..modifier, click, modifier)
@@ -480,7 +481,7 @@ local function SpecialAction(self)
 			return
 		end
 		-- MerchantButton
-		if 	((node and node:GetParent()):GetName() and (node and node:GetParent()):GetName():match("MerchantItem")) then  -- 'if node.price then' 
+		if 	((node and node:GetParent()):GetName() and (node and node:GetParent()):GetName():match("MerchantItem")) or ConsolePort:RunPluginNodeChecks("IsMerchantNode", node) then  -- 'if node.price then' 
 
 			local maxStack = GetMerchantItemMaxStack(node:GetID())
 			local _, _, price, stackCount, _, _, extendedCost = GetMerchantItemInfo(node:GetID())
@@ -498,32 +499,23 @@ local function SpecialAction(self)
 				local maxPurchasable = min(maxStack, canAfford)
 				OpenStackSplitFrame(maxPurchasable, node, "TOPLEFT", "BOTTOMLEFT")
 			end
-		-- Item button
+		-- Item button 
 		elseif (node:GetParent():GetName() and node:GetParent():GetName():match("ContainerFrame")  -- 'if node.JunkItem then'
-					and node:GetName():match(node:GetParent():GetName().."Item")) then    
-
-			local link = GetContainerItemLink(node:GetParent():GetID(), node:GetID())
-			local _, itemID = strsplit(":", (strmatch(link or "", "item[%-?%d:]+")) or "")
-			if GetItemSpell(link) then
-				self:AddUtilityAction("item", itemID)
-			else
-				local _, itemCount, locked = GetContainerItemInfo(node:GetParent():GetID(), node:GetID())
-				if ( not locked and itemCount and itemCount > 1) then
-					node.SplitStack = function(button, split)
-						SplitContainerItem(button:GetParent():GetID(), button:GetID(), split)
-					end
-					OpenStackSplitFrame(itemCount, node, "BOTTOMRIGHT", "TOPRIGHT")
-				end
+					and node:GetName():match(node:GetParent():GetName().."Item")) or ConsolePort:RunPluginNodeChecks("IsBagNode", node) then    
+			local bagID, slotID = node:GetParent():GetID(), node:GetID()
+			local _, _, locked = GetContainerItemInfo(bagID, slotID)
+			if not locked then
+				ConsolePortItemMenu:SetItem(bagID, slotID)
 			end
 		-- Spell button
-		elseif ((node and node:GetParent()):GetName() and (node and node:GetParent()):GetName():match(CPAPI.IsAscension() and "AscensionSpellbookFrame" or "SpellBookFrame") -- 'if node.SpellName then'
-					and node:GetName():match("SpellButton")) then 
+		elseif ((node and node:GetParent()):GetName() and (node and node:GetParent()):GetName():match("SpellBookFrame") -- 'if node.SpellName then'
+					and node:GetName():match("SpellButton")) or ConsolePort:RunPluginNodeChecks("IsSpellNode", node) then 
 						
-			local SpellBookFrame = CPAPI.IsAscension() and AscensionSpellbookFrame or SpellBookFrame
+			local SpellBookFrame = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellBookFrame") or SpellBookFrame
 
 			if(node:IsEnabled() ~= 0) then 
 				local book, id, spellID, _ = SpellBookFrame, node:GetID()  
-				local sID, sDisplayID = CPAPI.IsAscension() and node.spell or SpellBook_GetSpellID(id);   
+				local sID, sDisplayID = CPAPI.IsCustomClient() and node.spell or SpellBook_GetSpellID(id);   
 			
 				if 	not IsPassiveSpell(sID, SpellBookFrame.bookType) then 
 					if book.bookType == BOOKTYPE_PROFESSION then 

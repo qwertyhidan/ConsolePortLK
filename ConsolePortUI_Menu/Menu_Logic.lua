@@ -18,7 +18,7 @@ function Menu:OnHide()
 	end
 end 
 
-Menu:SetAttribute("IsAscension", CPAPI.IsAscension() and "true" or "false");
+Menu:SetAttribute("IsCustomClient", CPAPI.IsCustomClient() and "true" or "false");
 
 Menu.CallMethodFromFrame = CPAPI.CallMethodFromFrame
 
@@ -164,7 +164,7 @@ for name, script in pairs({
 			end
 
 		elseif ( key == CENTER or key == OPTIONS or key == SHARE ) and down then
-			if(self:GetAttribute('IsAscension') == "true") then 
+			if(self:GetAttribute('IsCustomClient') == "true") then 
 				returnHandler, returnValue = 'macrotext', '/click EscapeMenuButton1'
 			else
 				returnHandler, returnValue = 'macrotext', '/click GameMenuButtonContinue'

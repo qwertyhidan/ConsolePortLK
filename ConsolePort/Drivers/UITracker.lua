@@ -58,6 +58,13 @@ function ConsolePort:AddFrameTracker(frame)
 	frameTrackers[frame] = true
 end
 
+function ConsolePort:IsFrameTracked(frame)
+	if(frameTrackers[frame]) then
+		return true
+	end
+end
+
+
 ---------------------------------------------------------------
 -- Action button / action bar caching
 ---------------------------------------------------------------

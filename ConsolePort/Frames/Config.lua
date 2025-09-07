@@ -361,20 +361,65 @@ local function CategoryOnEnter(self)
 	end
 end
 
-function Category:AddNew(header, bannerAtlas)
-	local id = #self.Buttons+1
-	local banner = db.Atlas.GetFutureButton("$parentHeader"..id, self, nil, bannerAtlas, 110, 30, true)
-	banner.id = id
-	banner:SetText(header)
-	banner:SetScript("OnClick", CategoryOnClick)
-	banner:SetScript("OnEnter", CategoryOnEnter)
-	banner:SetPoint("LEFT", self.Buttons[id-1] or self, self.Buttons[id-1] and "RIGHT" or "LEFT", 0, 0)
-	self.Buttons[id] = banner
-	self:SetWidth(id*banner:GetWidth())
-	self:ClearAllPoints()
-	self:SetPoint("CENTER", 0, 0)
-	return id
+local PADDING   = 20
+local MIN_WIDTH = 80
+local SPACING   = 6
+
+local function SizeFutureButtonToText(btn)
+    if not btn or not btn.Label then return end
+
+    local fs = btn.Label
+    fs:SetWordWrap(false)
+    fs:SetWidth(0)
+
+    local text = fs:GetText() or ""
+    local textWidth = math.ceil(fs:GetStringWidth() or 0)
+    local targetW = math.max(MIN_WIDTH, textWidth + PADDING)
+    local h = btn:GetHeight() or 30
+
+    btn:SetWidth(targetW)
+    if btn.Cover            then btn.Cover:SetSize(targetW, h) end
+    if btn.SelectedTexture  then btn.SelectedTexture:SetSize(targetW, h * 0.7828) end
+    if btn.HighlightTexture then btn.HighlightTexture:SetSize(targetW, h * 0.7828) end
+    if btn.Icon             then btn.Icon:SetSize(targetW, h) end
 end
+
+function Category:AddNew(header, bannerAtlas)
+    local id = #self.Buttons + 1
+    local banner = db.Atlas.GetFutureButton("$parentHeader"..id, self, nil, bannerAtlas, 110, 30, true)
+    banner.id = id
+    banner:SetText(header)
+    banner:SetScript("OnClick", CategoryOnClick)
+    banner:SetScript("OnEnter", CategoryOnEnter)
+
+    SizeFutureButtonToText(banner)
+    banner:HookScript("OnShow", SizeFutureButtonToText)
+    hooksecurefunc(banner, "SetText", function(self) SizeFutureButtonToText(self) end)
+    if banner.Label then
+        hooksecurefunc(banner.Label, "SetText", function(self) SizeFutureButtonToText(self:GetParent()) end)
+    end
+
+    local prev = self.Buttons[id-1]
+    if prev then
+        banner:SetPoint("LEFT", prev, "RIGHT", SPACING, 0)
+    else
+        banner:SetPoint("LEFT", self, "LEFT", 0, 0)
+    end
+
+    self.Buttons[id] = banner
+
+    local total = 0
+    for i = 1, #self.Buttons do
+        total = total + self.Buttons[i]:GetWidth()
+    end
+    total = total + SPACING * math.max(0, #self.Buttons - 1)
+    self:SetWidth(total)
+    self:ClearAllPoints()
+    self:SetPoint("CENTER", self:GetParent(), "CENTER", 0, 0)
+
+    return id
+end
+
 
 ---------------------------------------------------------------
 function Config:GetCategoryID()

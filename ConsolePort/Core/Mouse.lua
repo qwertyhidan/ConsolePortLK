@@ -386,6 +386,10 @@ for name, script in pairs({
 			interact = true
 		end
 
+		if(CXPKEY and CXPBINDING) then
+			control:RunFor(self, self:GetAttribute('Set'), CXPKEY, CXPBINDING)
+		end
+
 		if (( interact or loot or npc ) and USEKEY) or (loot and LOOTKEY) then
 			if loot and LOOTKEY then 
 				control:RunFor(self, self:GetAttribute('Set'), LOOTKEY, 'INTERACTTARGET')
@@ -870,8 +874,19 @@ GameTooltip:HookScript('OnTooltipCleared', Trail.OnTooltipClear)
 ---------------------------------------------------------------
 function Core:UpdateMouseDriver()
 	if not InCombatLockdown() then
-		local loot = db.Settings.lootWith
+		local loot 
 		local button = db.Settings.interactWith
+		local cxpinteract = db.Settings.interactCxpWith
+
+		if(cxpinteract) then  
+			Mouse:Execute(format([[
+				CXPKEY = '%s'
+				CXPBINDING = '%s'
+				control:RunFor(self, self:GetAttribute('UpdateTarget'), self:GetAttribute('current'))
+			]], cxpinteract, C_ConsoleXP and "CXPINTERACT" or QueueInteract and "INTERACTIONKEYBIND"))
+		end
+
+
 		if button then
 			local original = db.Bindings and db.Bindings[button] and db.Bindings[button]['']
 			local id = original and self:GetActionID(original)

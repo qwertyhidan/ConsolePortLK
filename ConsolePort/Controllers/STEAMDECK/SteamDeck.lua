@@ -155,10 +155,31 @@ db.Controllers.STEAMDECK = {
 			['CTRL-SHIFT-'] = 'OPENCHAT',
 		},
 		-- Grip buttons
-		['CP_T3'] = {},
-		['CP_T4'] = {},
-    	['CP_T5'] = {},
-		['CP_T6'] = {},		
+		['CP_T3'] = {
+			['']		 	= 'MULTIACTIONBAR3BUTTON1',
+			['SHIFT-'] 		= 'MULTIACTIONBAR3BUTTON2',
+			['CTRL-'] 		= 'MULTIACTIONBAR3BUTTON3',
+			['CTRL-SHIFT-'] = 'MULTIACTIONBAR3BUTTON4',
+		},
+		['CP_T4'] = {
+			['']		 	= 'MULTIACTIONBAR3BUTTON5',
+			['SHIFT-'] 		= 'MULTIACTIONBAR3BUTTON6',
+			['CTRL-'] 		= 'MULTIACTIONBAR3BUTTON7',
+			['CTRL-SHIFT-'] = 'MULTIACTIONBAR3BUTTON8',
+		},
+    	['CP_T5'] = {
+			['']		 	= 'MULTIACTIONBAR3BUTTON9',
+			['SHIFT-'] 		= 'MULTIACTIONBAR3BUTTON10',
+			['CTRL-'] 		= 'MULTIACTIONBAR3BUTTON11',
+			['CTRL-SHIFT-'] = 'MULTIACTIONBAR3BUTTON12',
+		},
+		['CP_T6'] = {
+			['']		 	= 'MULTIACTIONBAR4BUTTON1',
+			['SHIFT-'] 		= 'MULTIACTIONBAR4BUTTON2',
+			['CTRL-'] 		= 'MULTIACTIONBAR4BUTTON3',
+			['CTRL-SHIFT-'] = 'MULTIACTIONBAR4BUTTON4',
+
+		},		
 		-- Stick buttons
 		['CP_T_R3'] = {},
 		['CP_T_L3'] = {},

@@ -465,7 +465,7 @@ end
 function HANDLE:SetArbitraryBinding(button, binding)
 	button:SetAttribute('disableDragNDrop', true)
 	return 'custom', {
-		tooltip = _G['BINDING_NAME_'..binding] or binding,
+		tooltip = ConsolePort:GetUtilityRingName(binding) or _G['BINDING_NAME_'..binding] or binding,
 		texture = ab:GetBindingIcon(binding) or [[Interface\MacroFrame\MacroFrame-Icon]],
 		func = function() end,
 	}

@@ -22,6 +22,14 @@ local Key = {
 		RIGHT 	= ConsolePort:GetUIControlKey('CP_R_RIGHT'),
 	},
 }
+
+local Index = {}
+for side, set in pairs(Key) do
+	for name, id in pairs(set) do
+		Index[id] = ('CP_%s_%s'):format(side, name)
+	end
+end
+
 ---------------------------------------------------------------
 -- Get action/input handlers, EasyMotion -> EM for brevity
 local EM, Input = ConsolePortEasyMotionButton, ConsolePortEasyMotionInput
@@ -236,7 +244,7 @@ for name, script in pairs({
 		control:CallMethod('SetFramePool', pool, side)
 		control:CallMethod('HideBindings', ghostMode)
 		for binding, unit in pairs(lookup) do
-			control:CallMethod('DisplayBinding', tostring{binding), unit, ghostMode)
+			control:CallMethod('DisplayBinding', tostring(binding), unit, ghostMode)
 		end
 	]],
 
@@ -544,9 +552,9 @@ function HotkeyMixin:Animate(ghostMode)
 		self.Match.Shrink:SetSmoothing('OUT')
 		---
 		self.Match.Alpha:SetStartDelay(0.1)
-		self.Match.Alpha:SetFromAlpha(1)
-		self.Match.Alpha:SetToAlpha(0)
-		self.Match.Alpha:SetDuration(0.2)
+		--self.Match.Alpha:SetFromAlpha(1)
+		--self.Match.Alpha:SetToAlpha(0)
+		--self.Match.Alpha:SetDuration(0.2)
 		---
 		CPAPI.Mixin(self.Match, GroupMixin)
 	end

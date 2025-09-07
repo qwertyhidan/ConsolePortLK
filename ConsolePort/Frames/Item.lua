@@ -15,12 +15,13 @@ local INDEX_INFO_CLASS = 12
 local COMMAND_OPT_ICON = {
 	Default   = [[Interface\QuestFrame\UI-Quest-BulletPoint]];
 	Sell      = [[Interface\GossipFrame\BankerGossipIcon]];
-	Split     = [[Interface\Cursor\UI-Cursor-SizeLeft]];
-	Equip     = [[Interface\GossipFrame\transmogrifyGossipIcon]];
-	Pickup    = [[Interface\Cursor\openhand]];
+	Split     = [[Interface\AddOns\ConsolePort\Textures\Interface\UI-Cursor-SizeLeft]];
+	Equip     = [[Interface\AddOns\ConsolePort\Textures\Interface\transmogrifyGossipIcon]];
+	Pickup    = [[Interface\AddOns\ConsolePort\Textures\Interface\openhand]];
 	Delete    = [[Interface\Buttons\UI-GroupLoot-Pass-Up]];
-	QuickBind = [[Interface\Buttons\UI-AttributeButton-Encourage-Up]];
+	QuickBind = [[Interface\AddOns\ConsolePort\Textures\Interface\UI-AttributeButton-Encourage-Up]];
 }
+
 local INV_EQ_LOCATIONS = {
 	INVTYPE_WEAPON  = {INVSLOT_MAINHAND, INVSLOT_OFFHAND};
 	INVTYPE_FINGER  = {INVSLOT_FINGER1,  INVSLOT_FINGER2};
@@ -30,26 +31,160 @@ local INV_EQ_LOCATIONS = {
 	INVTYPE_BAG = { 20, 21, 22, 23 };
 }
 local QUICK_BIND_TYPES = {
-	['LE_ITEM_CLASS_CONSUMABLE'] = true;
-	['LE_ITEM_CLASS_QUESTITEM']  = true;
-	['LE_ITEM_CLASS_WEAPON']     = true;
+    ["Consumable"] = true,
+    ["Quest"]      = true,
+    ["Weapon"]     = true,
 }
 ---------------------------------------------------------------
 
-function ItemMenu:SetItem(bagID, slotID)
-	self:SetBagAndSlot(bagID, slotID)
-	self:SetItemLocation(self)
+local function IsItemEmpty(Item)
+    if not Item.bagID or not Item.slotID then
+        return true
+    end
 
-	if self:IsItemEmpty() then
+    -- Check if the bag/slot actually has an item
+    local itemID = GetContainerItemID(Item.bagID, Item.slotID)
+    if not itemID then
+        return true
+    end
+
+    -- Optional: check if the item is locked or inaccessible
+    local _, _, locked = GetContainerItemInfo(Item.bagID, Item.slotID)
+    if locked then
+        return true
+    end
+
+    return false
+end
+
+local function GetItemIcon(Item)
+    -- Make sure bag/slot are set
+    if not Item.bagID or not Item.slotID then
+        return nil
+    end
+
+    local texture = select(1, GetContainerItemInfo(Item.bagID, Item.slotID))
+    return texture
+end
+
+local function GetItemName(Item)
+    -- Make sure bag/slot are set
+    if not Item.bagID or not Item.slotID then
+        return nil
+    end
+
+    -- Get the item link from the bag slot
+    local itemLink = GetContainerItemLink(Item.bagID, Item.slotID)
+    if itemLink then
+        local itemName = select(1, GetItemInfo(itemLink))
+        return itemName
+    end
+
+    return nil
+end
+
+local function GetItemLink(Item) 
+    return GetContainerItemLink(Item.bagID, Item.slotID)
+end
+
+local BAG_ITEM_QUALITY_COLORS = {
+    [0] = {r=0.5, g=0.5, b=0.5},  -- Poor
+    [1] = {r=1, g=1, b=1},        -- Common
+    [2] = {r=0.12, g=1, b=0},     -- Uncommon
+    [3] = {r=0, g=0.44, b=0.87},  -- Rare
+    [4] = {r=0.64, g=0.21, b=0.93},-- Epic
+    [5] = {r=1, g=0.5, b=0},      -- Legendary
+}
+
+local function GetItemQualityColor(Item)
+	local bagID = Item.bagID
+	local slotID = Item.slotID
+
+    if not Item.bagID or not Item.slotID then
+		return 1,1,1
+	end
+
+    local link = GetContainerItemLink(bagID, slotID)
+    if not link then return 1, 1, 1 end
+
+    local _, _, quality = GetItemInfo(link)
+    if not quality then quality = 1 end  -- default to common (white)
+
+    local color = BAG_ITEM_QUALITY_COLORS[quality] or {r=1, g=1, b=1}
+    return color.r, color.g, color.b
+end
+
+local function GetItemInventoryType(Item)
+    -- Make sure bag/slot are set
+    if not Item.bagID or not Item.slotID then
+        return nil
+    end
+
+    -- Get the item link from the bag slot
+    local itemLink = GetContainerItemLink(Item.bagID, Item.slotID)
+    if itemLink then
+        -- The 9th return from GetItemInfo is inventoryType
+        local inventoryType = select(9, GetItemInfo(itemLink))
+        return inventoryType
+    end
+
+    return nil
+end
+
+
+-- build once, only where multiple slots are possible we return a table
+local INVSLOTMAP = {
+    INVTYPE_HEAD            = GetInventorySlotInfo("HeadSlot"),
+    INVTYPE_NECK            = GetInventorySlotInfo("NeckSlot"),
+    INVTYPE_SHOULDER        = GetInventorySlotInfo("ShoulderSlot"),
+    INVTYPE_BODY            = GetInventorySlotInfo("ShirtSlot"),
+    INVTYPE_CHEST           = GetInventorySlotInfo("ChestSlot"),
+    INVTYPE_ROBE            = GetInventorySlotInfo("ChestSlot"),
+    INVTYPE_WAIST           = GetInventorySlotInfo("WaistSlot"),
+    INVTYPE_LEGS            = GetInventorySlotInfo("LegsSlot"),
+    INVTYPE_FEET            = GetInventorySlotInfo("FeetSlot"),
+    INVTYPE_WRIST           = GetInventorySlotInfo("WristSlot"),
+    INVTYPE_HAND            = GetInventorySlotInfo("HandsSlot"),
+    INVTYPE_WEAPONMAINHAND  = GetInventorySlotInfo("MainHandSlot"),
+    INVTYPE_WEAPONOFFHAND   = GetInventorySlotInfo("SecondaryHandSlot"),
+    INVTYPE_2HWEAPON        = GetInventorySlotInfo("MainHandSlot"),
+    INVTYPE_SHIELD          = GetInventorySlotInfo("SecondaryHandSlot"),
+    INVTYPE_HOLDABLE        = GetInventorySlotInfo("SecondaryHandSlot"),
+    INVTYPE_RANGED          = GetInventorySlotInfo("RangedSlot"),
+    INVTYPE_RANGEDRIGHT     = GetInventorySlotInfo("RangedSlot"),
+    INVTYPE_AMMO            = GetInventorySlotInfo("AmmoSlot"),
+    INVTYPE_QUIVER          = GetInventorySlotInfo("AmmoSlot"),
+    INVTYPE_THROWN          = GetInventorySlotInfo("RangedSlot"),
+    INVTYPE_CLOAK           = GetInventorySlotInfo("BackSlot"),
+    INVTYPE_TABARD          = GetInventorySlotInfo("TabardSlot"),
+    INVTYPE_RELIC           = GetInventorySlotInfo("SecondaryHandSlot"),
+}
+
+local function ResolveEquipSlotsFromInvType(invType)
+    if not invType then return nil end
+
+    return INVSLOTMAP[invType]
+end
+
+
+function ItemMenu:SetItem(bagID, slotID)
+	--self:SetBagAndSlot(bagID, slotID)
+	self.bagID = bagID;
+	self.slotID = slotID;
+
+	--self:SetItemLocation(self)
+  	self.itemLocation = self;
+
+	if IsItemEmpty(self) then
 		return self:Hide()
 	end
 
 	local count = self:GetCount()
 	self.Count:SetText(count > 1 and ('x'..count) or '')
 	--self.Icon:SetTexture(self:GetItemIcon())
-	SetPortraitToTexture(self.Icon, self:GetItemIcon());
-	self.Name:SetText(self:GetItemName())
-	self.Name:SetTextColor(self:GetItemQualityColor().color:GetRGB())
+	SetPortraitToTexture(self.Icon, GetItemIcon(self));
+	self.Name:SetText(GetItemName(self))
+	self.Name:SetTextColor(GetItemQualityColor(self))
 
 	self:SetTooltip()
 	self:SetCommands()
@@ -81,7 +216,7 @@ function ItemMenu:SetCommands()
 	end
 
 	if self:IsQuickBindItem() and (self:IsUsableItem() or self:IsEquippableItem()) then
-		self:AddCommand(db('TOOLTIP/ADD_TO_EXTRA'), 'QuickBind')
+		self:AddQuickBindCommands()
 	end
 
 	if self:IsSellableItem() then
@@ -99,17 +234,23 @@ end
 function ItemMenu:GetEquipCommand(invSlot, i, numSlots)
 	local item = GetInventoryItemID('player', invSlot)
 	local link = item and select(INDEX_INFO_ILINK, GetItemInfo(item))
+
+	local replaceText = REPLACE or "Replace"
+	local equipText   = EQUIPSET_EQUIP or "Equip"
+	local slotAbbrText = SLOT_ABBR or "Slots";
+
 	return {
-		text =  link and (REPLACE..' '..link)
-				or numSlots > 1 and EQUIPSET_EQUIP .. (' (%s/%s %s)'):format(i, numSlots, SLOT_ABBR)
-				or EQUIPSET_EQUIP;
+		text =  link and (replaceText .. ' ' .. link)
+				or numSlots > 1 and equipText .. (' (%s/%s %s)'):format(i, numSlots, slotAbbrText)
+				or equipText;
 		data = invSlot;
 		free = not link;
 	}
 end
 
+
 function ItemMenu:AddEquipCommands()
-	local slots = INV_EQ_LOCATIONS[self:GetInventoryLocation()] or {self:GetInventoryType()}
+	local slots = INV_EQ_LOCATIONS[GetItemInventoryType(self)] or {ResolveEquipSlotsFromInvType(GetItemInventoryType(self))}
 	local commands = {}
 	local foundFree = false
 
@@ -125,6 +266,12 @@ function ItemMenu:AddEquipCommands()
 	-- add in order (make sure 'Equip' comes first)
 	for i, command in ipairs(commands) do
 		self:AddCommand(command.text, 'Equip', command.data)
+	end
+end
+
+function ItemMenu:AddQuickBindCommands() 
+	for i, preset in ipairs(ConsolePortUtility) do 
+		self:AddCommand(format(db(i == 1 and 'TOOLTIP/ADD_TO_EXTRA' or 'TOOLTIP/ADD_TO_EXTRA_P'), preset.Name), 'QuickBind', i)
 	end
 end
 
@@ -172,7 +319,7 @@ end
 function ItemMenu:SetTooltip()
 	local tooltip = self.Tooltip
 	tooltip:SetOwner(self, 'ANCHOR_NONE')
-	tooltip:SetBagItem(self:GetBagAndSlot())
+	tooltip:SetBagItem(self.bagID, self.slotID)
 	tooltip:Show()
 	tooltip:ClearAllPoints()
 	tooltip:SetPoint('TOPLEFT', 80, -16)
@@ -190,35 +337,58 @@ ItemMenu.Tooltip:HookScript('OnTooltipSetItem', ItemMenu.Tooltip.Readjust)
 -- API
 ---------------------------------------------------------------
 function ItemMenu:GetSpellID()
-	return GetItemSpell(self:GetItemID())
+	return GetItemSpell(GetItemLink(self))
 end
 
-function ItemMenu:GetCount()
-	return select(INDEX_BAGS_COUNT, GetContainerItemInfo(self:GetBagAndSlot()))
+function ItemMenu:GetCount() 
+	return select(INDEX_BAGS_COUNT, GetContainerItemInfo(self.bagID, self.slotID))
 end
 
 function ItemMenu:GetStackCount()
-	return select(INDEX_INFO_STACK, GetItemInfo(self:GetItemID()))
+	return select(INDEX_INFO_STACK, GetItemInfo(GetItemLink(self)))
 end
 
 function ItemMenu:GetInventoryLocation()
-	return select(INDEX_INFO_EQLOC, GetItemInfo(self:GetItemID()))
+	return select(INDEX_INFO_EQLOC, GetItemInfo(GetItemLink(self)))
 end
 
 function ItemMenu:HasNoValue()
-	return select(INDEX_BAGS_NOVAL, GetContainerItemInfo(self:GetBagAndSlot()))
+	return select(INDEX_BAGS_NOVAL, GetContainerItemInfo(self.bagID, self.slotID))
 end
 
+local INVALID_QUICKBIND_INV_TYPES = {
+    INVTYPE_HEAD, INVTYPE_NECK, INVTYPE_SHOULDER, INVTYPE_BODY,
+    INVTYPE_CHEST, INVTYPE_ROBE, INVTYPE_WAIST, INVTYPE_LEGS,
+    INVTYPE_FEET, INVTYPE_WRIST, INVTYPE_HAND, INVTYPE_AMMO,
+    INVTYPE_QUIVER, INVTYPE_CLOAK, INVTYPE_TABARD, INVTYPE_BAG, INVTYPE_FINGER, INVTYPE_TRINKET
+}
+
 function ItemMenu:IsQuickBindItem()
-	return QUICK_BIND_TYPES[select(INDEX_INFO_CLASS, GetItemInfo(self:GetItemID()))]
+    local link = GetItemLink(self)
+    if not link then return false end
+
+    local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
+
+    for _, t in ipairs(INVALID_QUICKBIND_INV_TYPES) do
+        if itemEquipLoc == t then
+            return false
+        end
+    end
+
+    if GetItemSpell(link) then
+        return true
+    end
+
+    return false
 end
+
 
 function ItemMenu:IsSplittableItem()
 	return self:GetStackCount() > 1 and self:GetCount() > 1
 end
 
 function ItemMenu:IsEquippableItem()
-	return IsEquippableItem(self:GetItemID())
+	return IsEquippableItem(GetItemLink(self))
 end
 
 function ItemMenu:IsUsableItem()
@@ -229,24 +399,42 @@ function ItemMenu:IsSellableItem()
 	return self.merchantAvailable and not self:HasNoValue()
 end
 
+StaticPopupDialogs["CP_CONFIRM_DELETE_ITEM"] = {
+    text = "Are you sure you want to delete this item?",
+    button1 = "Yes",
+    button2 = "No",
+    OnAccept = function(self)
+        if self.itemMenuRef then
+            PickupContainerItem(self.itemMenuRef.bagID, self.itemMenuRef.slotID)
+            DeleteCursorItem()
+			self.itemMenuRef:Hide()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 ---------------------------------------------------------------
 -- Commands
 ---------------------------------------------------------------
 function ItemMenu:Pickup()
-	PickupContainerItem(self:GetBagAndSlot())
+	PickupContainerItem(self.bagID, self.slotID)
 	self:Hide()
 end
 
-function ItemMenu:Delete()
-	PickupContainerItem(self:GetBagAndSlot())
-	DeleteCursorItem()
-	self:Hide()
+function ItemMenu:Delete() 
+    local popup = StaticPopup_Show("CP_CONFIRM_DELETE_ITEM")
+	if(popup) then
+		popup.itemMenuRef = self
+	end
 end
 
 function ItemMenu:Equip(slot)
 	if self:IsEquippableItem() then
-		PickupContainerItem(self:GetBagAndSlot())
-		EquipCursorItem(slot or self:GetInventoryType())
+		PickupContainerItem(self.bagID, self.slotID)
+		EquipCursorItem(slot or ResolveEquipSlotsFromInvType(GetItemInventoryType(self)))
 	end
 	self:Hide()
 end
@@ -254,7 +442,7 @@ end
 function ItemMenu:Sell()
 	-- confirm to ensure item isn't used
 	if self:IsSellableItem() then
-		UseContainerItem(self:GetBagAndSlot())
+		UseContainerItem(self.bagID, self.slotID)
 	end
 	self:Hide()
 end
@@ -264,13 +452,18 @@ function ItemMenu:Split()
 end
 
 function ItemMenu:SplitStack(count)
-	local bagID, slotID = self:GetBagAndSlot()
+	local bagID, slotID = self.bagID, self.slotID
 	SplitContainerItem(bagID, slotID, count)
 	self:Hide()
 end
 
-function ItemMenu:QuickBind()
-	Core:AddUtilityAction('item', self:GetItemID())
+function ItemMenu:QuickBind(presetID)
+	local link = GetItemLink(self)
+	local _, itemID = strsplit(":", (strmatch(link or "", "item[%-?%d:]+")) or "")
+	if GetItemSpell(link) then
+		Core:AddUtilityAction("item", itemID, presetID) 
+	end
+
 	self:Hide()
 end
 
@@ -290,8 +483,7 @@ end
 function ItemMenuButtonMixin:SetCommand(text, command, data)
 	self.data = data
 	self.command = command
-	--self.Icon:SetTexture(COMMAND_OPT_ICON[command] or COMMAND_OPT_ICON.Default)
-	SetPortraitToTexture(self.Icon, COMMAND_OPT_ICON[command] or COMMAND_OPT_ICON.Default)
+	self.Icon:SetTexture(COMMAND_OPT_ICON[command] or COMMAND_OPT_ICON.Default)
 	self:SetText(text)
 end
 
@@ -323,9 +515,9 @@ function ItemMenu:PLAYER_REGEN_DISABLED()
 	self:Hide()
 end
 
-function ItemMenu:BAG_UPDATE_DELAYED()
+function ItemMenu:BAG_UPDATE()
 	if self:IsShown() then
-		self:SetItem(self.bagID, self.slotIndex)
+		self:SetItem(self.bagID, self.slotID)
 	end
 end
 
@@ -333,7 +525,7 @@ end
 for _, event in ipairs({
 	'MERCHANT_SHOW',
 	'MERCHANT_CLOSED',
-	'BAG_UPDATE_DELAYED',
+	'BAG_UPDATE',
 	'PLAYER_REGEN_DISABLED',
 }) do ItemMenu:RegisterEvent(event) end
 

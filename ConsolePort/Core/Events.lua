@@ -181,6 +181,7 @@ function Events:ACTIVE_TALENT_GROUP_CHANGED()
 		-- Dispatch updated bindings
 		self:SetUIFocus(false)
 		self:LoadBindingSet(bindingSet)
+		self:SetupUtilityBindings()
 		self:OnNewBindings(bindingSet)
 		self:LoadHotKeyTextures()
 		self:UpdateFrames()
@@ -220,28 +221,27 @@ function Events:ADDON_LOADED(name)
 	self:LoadHookScripts()
 	self:LoadRaidCursor()
 	self:LoadCameraSettings()
-	self:OnNewBindings()
+	self:SetupUtilityBindings()
+	self:OnNewBindings() 
 	self:CreateConfigPanel()
 	self:CreateSecureButtons()
 	self:SetupCursor()
 	self:ToggleUICore()
 	self:LoadUIControl()
-	self:CheckLoadedAddons() 
 
 	self:SetupRaidCursor()
 	self:UpdateCameraDriver()
 	self:RunOOC(self.UpdateMouseDriver)
 	self:RunOOC(self.SetupUtilityRing)
-
 	if not self.calibrationFrame then
 		self:CheckLoadedSettings()
 	end
 	self:UpdateCVars()
 	-----------------------------------------
-	Events.ADDON_LOADED = function(self, name)
+	Events.ADDON_LOADED = function(self, name) 
+		self:CheckLoadedAddons() 
 		-- Load plugin and register cursor frames
 		self:LoadAddonFrames(name)
-		--self:LoadPlugin(name)
 		-- Dispatch a frame update
 		self:UpdateFrames()
 		self:LoadHotKeyTextures()

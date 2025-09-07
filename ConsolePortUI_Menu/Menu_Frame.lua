@@ -8,15 +8,15 @@ local LootButton = L.LootButton
 local lootButtonProbeScript = L.lootButtonProbeScript
 local lootHeaderOnSetScript = L.lootHeaderOnSetScript
 
--- Check if game is ascension.
-local isAscension = CPAPI.IsAscension()
+-- Check if game client is a custom client.
+local IsCustomClient = CPAPI.IsCustomClient()
 
 -- Dropdown button templates 
-local maskTemplates = {'CPUIMenuButtonBaseTemplate', isAscension and 'SecureUnitButtonTemplate' or 'SecureActionButtonTemplate'}
-local baseTemplates = {'CPUIMenuButtonMaskTemplate', isAscension and 'SecureUnitButtonTemplate' or 'SecureActionButtonTemplate'}
+local maskTemplates = {'CPUIMenuButtonBaseTemplate', IsCustomClient and 'SecureUnitButtonTemplate' or 'SecureActionButtonTemplate'}
+local baseTemplates = {'CPUIMenuButtonMaskTemplate', IsCustomClient and 'SecureUnitButtonTemplate' or 'SecureActionButtonTemplate'}
 
 
-local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenuFrame, 'SecureHandlerStateTemplate, CPUIMenuTemplate', {
+local Menu =  UI:CreateFrame('Frame', an, IsCustomClient and EscapeMenu or GameMenuFrame, 'SecureHandlerStateTemplate, CPUIMenuTemplate', {
 	{
 		Character = {
 			Type 	= 'CheckButton',
@@ -327,7 +327,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					Attrib 	= {hidemenu = true},
 				},
 				
-				-- Ascension specifics
+				-- Custom client specifics
 				PathToAscension  = {
 					Type 	= 'Button',
 					Setup 	= baseTemplates,
@@ -339,7 +339,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					Img 	= [[Interface\ICONS\inv_azeriteexplosion]],
 					Attrib 	= {
 						hidemenu = true, 
-						condition = string.format('return %s', tostring(isAscension))
+						condition = string.format('return %s', tostring(IsCustomClient and IsCustomClient == "Ascension"))
 					},
 				},
 				Trials  = {
@@ -353,7 +353,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					Img 	= [[Interface\ICONS\_CallToArmsRed]],
 					Attrib 	= {
 						hidemenu = true,
-						condition = string.format('return %s', tostring(isAscension))
+						condition = string.format('return %s', tostring(IsCustomClient and IsCustomClient == "Ascension"))
 					},
 				},
 
@@ -364,7 +364,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					Setup 	= baseTemplates,
 					Mixin 	= Button,
 					ID 		= 8,
-					Point 	= {'TOP', isAscension and 'parent.Trials' or 'parent.PVEFinder', 'BOTTOM', 0, 0},
+					Point 	= {'TOP', IsCustomClient and 'parent.Trials' or 'parent.PVEFinder', 'BOTTOM', 0, 0},
 					Img 	= ICON:format('Spell_Shadow_Teleport'),  Attrib 	= {
 						hidemenu 	= true,
 						condition 	= 'return PlayerInGroup()',
@@ -502,7 +502,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 1,
 					Point 	= {'TOP', 'parent', 'BOTTOM', 0, -16},
 					Desc	= RETURN_TO_GAME,
-					RefTo 	= isAscension and EscapeMenuButton1 or GameMenuButtonContinue,
+					RefTo 	= IsCustomClient and EscapeMenuButton1 or GameMenuButtonContinue,
 					Img 	= [[Interface\FriendsFrame\Battlenet-WoWicon]], 
 				}, 
 				Logout  = {
@@ -512,7 +512,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 2,
 					Point 	= {'TOP', 'parent.Return', 'BOTTOM', 0, 0},
 					Desc	= LOGOUT,
-					RefTo 	= isAscension and EscapeMenuButton3 or GameMenuButtonLogout,
+					RefTo 	= IsCustomClient and EscapeMenuButton3 or GameMenuButtonLogout,
 					Img 	= ICON:format('Ability_Paladin_BeaconOfLight'),
 				--	OnLoadHook = function(self) SetPortraitToTexture(self.Icon, ICON:format('Ability_Paladin_BeaconOfLight')) end,
 				},
@@ -523,7 +523,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 3,
 					Point 	= {'TOP', 'parent.Logout', 'BOTTOM', 0, 0},
 					Desc	= EXIT_GAME,
-					RefTo 	= isAscension and EscapeMenuButton2 or GameMenuButtonQuit,
+					RefTo 	= IsCustomClient and EscapeMenuButton2 or GameMenuButtonQuit,
 					Img 	= [[Interface\RAIDFRAME\ReadyCheck-NotReady]],
 				},
 				Controller  = {
@@ -551,7 +551,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 5,
 					Point 	= {'TOP', 'parent.Controller', 'BOTTOM', 0, 0},
 					Desc	= VIDEOOPTIONS_MENU, 
-					RefTo 	= isAscension and EscapeMenuButton4 or GameMenuButtonOptions,
+					RefTo 	= IsCustomClient and EscapeMenuButton4 or GameMenuButtonOptions,
 					Img 	= [[Interface\Icons\Ability_TownWatch]], 
 					OnLoadHook = function(self) SetPortraitToTexture(self.Icon, ICON:format('Ability_TownWatch')) end,
 				},
@@ -562,7 +562,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 6,
 					Point 	= {'TOP', 'parent.Video', 'BOTTOM', 0, 0},
 					Desc	= VOICE_SOUND, 
-					RefTo 	= isAscension and EscapeMenuButton5 or GameMenuButtonSoundOptions,
+					RefTo 	= IsCustomClient and EscapeMenuButton5 or GameMenuButtonSoundOptions,
 					Img 	= [[Interface\FriendsFrame\PlusManz-BattleNet]],
 				},
 				Interface  = {
@@ -572,7 +572,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 7,
 					Point 	= {'TOP', 'parent.Audio', 'BOTTOM', 0, 0},
 					Desc	= UIOPTIONS_MENU, 
-					RefTo 	= isAscension and EscapeMenuButton8 or GameMenuButtonUIOptions,
+					RefTo 	= IsCustomClient and EscapeMenuButton8 or GameMenuButtonUIOptions,
 					Img 	= [[Interface\TUTORIALFRAME\UI-TutorialFrame-GloveCursor]],
 				},
 				AddOns  = {
@@ -584,7 +584,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					Desc	= ADDONS, 
                     Attrib 	= {hidemenu = true},
 					OnClick = function(self)
-						if (not isAscension) then 
+						if (not IsCustomClient) then 
 							InterfaceOptionsFrame:Show()
 							PanelTemplates_SetTab(InterfaceOptionsFrame, 2);       
 							InterfaceOptionsFrameAddOns:Show();
@@ -603,7 +603,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 9,
 					Point 	= {'TOP', 'parent.AddOns', 'BOTTOM', 0, -16},
 					Desc	= MACROS, 
-					RefTo 	= isAscension and EscapeMenuButton11 or GameMenuButtonMacros,
+					RefTo 	= IsCustomClient and EscapeMenuButton11 or GameMenuButtonMacros,
 					Img 	= ICON:format('trade_engineering'),
 					LoadScript = function(self) SetPortraitToTexture(self.Icon, ICON:format('trade_engineering')) end,
 				},
@@ -614,7 +614,7 @@ local Menu =  UI:CreateFrame('Frame', an, isAscension and EscapeMenu or GameMenu
 					ID 		= 10,
 					Point 	= {'TOP', 'parent.Macros', 'BOTTOM', 0, 0},
 					Desc	= KEY_BINDINGS, 
-					RefTo 	= isAscension and EscapeMenuButton9 or GameMenuButtonKeybindings,
+					RefTo 	= IsCustomClient and EscapeMenuButton9 or GameMenuButtonKeybindings,
 					Img 	= [[Interface\MacroFrame\MacroFrame-Icon]],
 				},
 				Help  = {
@@ -829,7 +829,7 @@ do
 			if button:GetAttribute('hidemenu') then
 				button:SetAttribute('type', 'macro')
 
-				if(isAscension) then
+				if(IsCustomClient) then
 					button:SetAttribute('macrotext', '/click EscapeMenuButton1')
 				else
 					button:SetAttribute('macrotext', '/click GameMenuButtonContinue')
@@ -850,7 +850,7 @@ do
 
 
 	UI:RegisterFrame(Menu, 'Menu', false, true)
-	UI:HideFrame(isAscension and EscapeMenu or GameMenuFrame, true)
+	UI:HideFrame(IsCustomClient and EscapeMenu or GameMenuFrame, true)
 
 	Menu:SetScale(cfg.scale)
 	Menu:LoadArt()

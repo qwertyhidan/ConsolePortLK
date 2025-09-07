@@ -6,6 +6,8 @@
 -- assign items from container buttons inside bag frames.
 -- Action buttons can grab info from cursor.
 
+-- Now with the possibility to have multiple utility rings by creating new presets.
+
 ---------------------------------------------------------------
 local addOn, db = ...
 ---------------------------------------------------------------
@@ -25,7 +27,7 @@ local red, green, blue = db.Atlas.GetCC()
 local colMul = 1 + ( 1 - (( red + green + blue ) / 3) )
 ---------------------------------------------------------------
 
-function Animation:ShowNewAction(actionButton, autoassigned)
+function Animation:ShowNewAction(actionButton, autoassigned, presetID)
 	-- if an item was auto-assigned, postpone its animation until the current animation has finished
 	if  autoassigned and self.Group:IsPlaying() then
 		local progress = self.Group:GetDuration() * self.Group:GetProgress()
@@ -39,7 +41,13 @@ function Animation:ShowNewAction(actionButton, autoassigned)
 		self.Quest:Hide()
 	end
 	local scale = Utility.frameScale or 1
-	self.Icon:SetTexture(actionButton.Icon.texture)
+
+	if(presetID) then
+		local actionData = ConsolePortUtility[presetID].Data[actionButton:GetID()]
+		SetPortraitToTexture(self.Icon, TEXTURE_GETS[actionData.type](actionData.value))
+	else 
+		SetPortraitToTexture(self.Icon, actionButton.Icon.texture)
+	end
 	--self.Spell:SetSize(175, 175)
 	self:ClearAllPoints()
 	self:SetPoint('CENTER', actionButton)
@@ -49,13 +57,19 @@ function Animation:ShowNewAction(actionButton, autoassigned)
 	self.Group:Play()
 	--FadeOut(self.Spell, 3, 0.15, 0)
 
-	if ConsolePortUtility[actionButton:GetID()] then
-		local value = ConsolePortUtility[actionButton:GetID()].value
-		local binding = ConsolePort:GetFormattedBindingOwner('CLICK ConsolePortUtilityToggle:LeftButton', nil, nil, true)
+	local activePreset = presetID and presetID or tonumber(Utility:GetAttribute("ActivePreset") or 1)
+
+	if ConsolePortUtility[activePreset].Data and ConsolePortUtility[activePreset].Data[actionButton:GetID()] then
+		local value = ConsolePortUtility[activePreset].Data[actionButton:GetID()].value
+		local binding = ConsolePort:GetFormattedBindingOwner(Utility:GetBindingForSet(activePreset), nil, nil, true)
 		if value then
 			local string = binding and ' '..binding or '.'
 			if value and not tonumber(value) then
-				db.Hint:DisplayMessage(format(db.TUTORIAL.HINTS.UTILITY_RING_NEWBIND, value, string), 3, -190)
+				if(isNotDefault) then
+					db.Hint:DisplayMessage(format(db.TUTORIAL.HINTS.UTILITY_RING_NEWBIND_P, value, ConsolePortUtility[activePreset].Name, string), 3, -190)
+				else 
+					db.Hint:DisplayMessage(format(db.TUTORIAL.HINTS.UTILITY_RING_NEWBIND, value, string), 3, -190)
+				end
 			elseif binding then
 				db.Hint:DisplayMessage(format(db.TUTORIAL.HINTS.UTILITY_RING_BIND, binding), 3, -190)
 			end
@@ -70,6 +84,11 @@ function Animation:ShowNewAction(actionButton, autoassigned)
 	AniCircle.Runes:SetRotation(angle)
 	FadeOut(AniCircle, 3, 1, 0)
 end
+
+function Animation:ShowPresetAction(presetID, slotIndex, value)
+    self:ShowNewAction(Utility.Buttons[slotIndex], false, presetID ~= 1 and presetID)
+end
+
 
 local function AnimateOnFinished(self)
 	AniCircle:Hide()
@@ -148,29 +167,53 @@ local function GetAutoAssignedItems()
 end
 
 local function UpdateQuestItems(self)
-	if not InCombatLockdown() then
+    if not InCombatLockdown() then
+        local newItems = GetQuestWatchItems()
 
-		local oldItems = GetAutoAssignedItems()
-		local newItems = GetQuestWatchItems()
+        for _, preset in ipairs(ConsolePortUtility) do
+            if preset.Autoassign then
+                -- prune only auto-assigned items that are no longer in the quest watch
+                for buttonID, buttonData in pairs(preset.Data) do
+                    local currentItem = buttonData.cursorID
+                    if buttonData.autoassigned and currentItem and not newItems[currentItem] then
+                        preset.Data[buttonID] = nil
+                    end
+                end
 
-		-- prune items that are not in the new set.
-		for currItem, button in pairs(oldItems) do
-			if not newItems[currItem] then
-				button:SetAttribute('type', nil)
-				button:SetAttribute('item', nil)
-			end
-		end
+                -- add new quest items that aren't already assigned
+                for newItemName, newItemID in pairs(newItems) do
+                    local alreadyAssigned = false
+                    for _, buttonData in pairs(preset.Data) do
+                        if buttonData.cursorID == newItemID then
+                            alreadyAssigned = true
+                            break
+                        end
+                    end
 
-		-- add new items that are not already autoassigned.
-		for newItemName, newItemID in pairs(newItems) do
-			if not oldItems[newItemName] then
-				AddAction('item', newItemID, true)
-			end
-		end
+                    if not alreadyAssigned then
+                        for _, actionButton in ipairs(Utility.Buttons) do
+                            if not actionButton:GetAttribute('type') then
+                                local buttonID = actionButton:GetID()
+                                preset.Data[buttonID] = {
+                                    action       = 'item',
+                                    value        = newItemID,
+                                    cursorID     = newItemID,
+                                    autoassigned = true,
+                                    mountID      = nil,
+                                }
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
 
-		self:RemoveUpdateSnippet(UpdateQuestItems)
-	end
+        self:RemoveUpdateSnippet(UpdateQuestItems)
+    end
 end
+
+
 
 
 ---------------------------------------------------------------
@@ -180,11 +223,12 @@ function Tooltip:Refresh()
 	if self.castButton then
 		self:AddLine(self.castInfo:format(db.TEXTURE[self.castButton]))
 	end
-	self:AddLine(self.removeInfo:format(db.TEXTURE.CP_T_L3))
+	self:AddLine(self.removeInfo:format(db.TEXTURE.CP_T_R3))
 end
 
-function Tooltip:OnShow()
-	self.castButton = ConsolePort:GetCurrentBindingOwner('CLICK ConsolePortUtilityToggle:LeftButton')
+function Tooltip:OnShow()	
+	local activePreset = tonumber(Utility:GetAttribute("ActivePreset") or 1)
+	self.castButton = ConsolePort:GetCurrentBindingOwner(Utility:GetBindingForSet(activePreset))
 	-- set CC backdrop
 	self:SetBackdropColor(red*0.15, green*0.15, blue*0.15,  0.75)
 	self:Refresh()
@@ -293,7 +337,7 @@ end
 function ConsolePortRingButtonMixin:PostClick(button)
 	if DROP_TYPES[GetCursorInfo()] then
 		local cursorType, id,  _, spellID = GetCursorInfo()
-		local SpellBookFrame = CPAPI.IsAscension() and AscensionSpellbookFrame or SpellBookFrame
+		local SpellBookFrame = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellBookFrame") or SpellBookFrame
 		
 		ClearCursor()
 
@@ -320,26 +364,30 @@ end
 
 
 function ConsolePortRingButtonMixin:OnAttributeChanged(attribute, detail)
-	-- omit on autoassigned and statehidden
-	if (attribute == 'autoassigned' or attribute == 'statehidden' or attribute == 'unit') then return end
-	if detail then
-		-- omit on item/mount added, because they need translation first.
-		if TRANSLATE_CURSOR_INFO[attribute](self, detail) then return end
-		ClearCursor()
-	end
+    -- only react to attributes that actually represent button content
+    if attribute ~= 'type' and attribute ~= 'item' and attribute ~= 'spell'
+       and attribute ~= 'macro' and attribute ~= 'action' then
+        return
+    end
 
-	-- update the icon texture
-	self:UpdateTexture()
+    if detail then
+        if TRANSLATE_CURSOR_INFO[attribute](self, detail) then return end
+        ClearCursor()
+    end
+
+    self:UpdateTexture()
 	
-	-- run callback if this button has content
-	local actionType = self:GetAttribute('type')
-	if actionType then
-		self:OnContentChanged(actionType)
-	else
-		self:SetAttribute('autoassigned', nil)
-		self:OnContentRemoved()
-	end
+    if Utility.clearing then return end 
+
+    local actionType = self:GetAttribute('type')
+    if actionType then 
+        self:OnContentChanged(actionType)
+    else 
+        self:SetAttribute('autoassigned', nil)
+        self:OnContentRemoved()
+    end
 end
+
 
 function ConsolePortRingButtonMixin:OnTooltipUpdate(elapsed)
 	self.idle = self.idle + elapsed
@@ -556,6 +604,7 @@ function Utility:SpawnButtonAtIndex(i)
 
 	
 	if(not button.ismxin) then
+		button:RegisterForClicks("AnyUp")
 		CPAPI.Mixin(button, ConsolePortRingButtonMixin)
 		button.ismxin = true
 	end
@@ -623,7 +672,7 @@ end
 function Utility:OnEvent(event, ...) 
 	if (event == 'QUEST_ACCEPTED' or 
 		event == 'QUEST_POI_UPDATE' or 
-		event == 'QUEST_WATCH_LIST_CHANGED') and self.autoExtra then
+		event == 'QUEST_WATCH_LIST_CHANGED') then
 		ConsolePort:RunOOC(UpdateQuestItems)
 	end
 	for _, ActionButton in ipairs(self.Buttons) do
@@ -682,10 +731,11 @@ function Utility:OnButtonFocused(index)
 	self.oldID = index
 end
 
-function Utility:DisplayHints(elapsed)
+function Utility:DisplayHints(elapsed) 
+	local activePreset = tonumber(Utility:GetAttribute("ActivePreset") or 1)
 	self.hintTimer = self.hintTimer + elapsed
 	if self.hintTimer > 5 then
-		local binding = ConsolePort:GetFormattedBindingOwner('CLICK ConsolePortUtilityToggle:LeftButton', nil, nil, true)
+		local binding = ConsolePort:GetFormattedBindingOwner(Utility:GetBindingForSet(activePreset), nil, nil, true)
 		if binding then
 			if self:GetAttribute('toggled') then
 				db.Hint:DisplayMessage(format(db.TUTORIAL.HINTS.UTILITY_RING_DOUBLE, binding), 4, -190)
@@ -729,7 +779,8 @@ function Utility:OnShow()
 	FadeOut(self.Arrow, 0, 0, 0)
 	FadeOut(self.Runes, 0, 0, 0)
 	self.hintTimer = 0
-	self.hasHints = true
+	self.hasHints = true 
+	self:Refresh()
 end
 
 function Utility:OnHide()
@@ -739,7 +790,7 @@ function Utility:OnHide()
 	self.Gradient:SetAlpha(0)
 	self.Gradient:ClearAllPoints()
 	self.Gradient:Hide()
---	self.Spell:Hide()
+	--self.Spell:Hide()
 end
 
 Utility:SetAttribute('_onextrabar', [[
@@ -779,18 +830,29 @@ Utility:SetAttribute('_onextrabar', [[
 -- Callbacks
 ---------------------------------------------------------------
 local function OnButtonContentChanged(self, actionType)
-	ConsolePortUtility[self:GetID()] = {
-		action = actionType;
-		value = self:GetAttribute(actionType);
-		cursorID = self:GetAttribute('cursorID');
-		mountID = self:GetAttribute('mountID');
-		autoassigned = self:GetAttribute('autoassigned');
-	} 
-	self:UpdateState()
+	local activePreset = tonumber(Utility:GetAttribute("ActivePreset") or 1)
+    local preset = ConsolePortUtility[activePreset]
+    if not preset.Data then
+        preset.Data = {}
+    end
+
+    preset.Data[self:GetID()] = {
+        action       = actionType,
+        value        = self:GetAttribute(actionType),
+        cursorID     = self:GetAttribute('cursorID'),
+        mountID      = self:GetAttribute('mountID'),
+        autoassigned = self:GetAttribute('autoassigned'),
+    }
+
+    self:UpdateState()
 end
 
-local function OnButtonContentRemoved(self)
-	ConsolePortUtility[self:GetID()] = nil
+local function OnButtonContentRemoved(self) 
+	local activePreset = tonumber(Utility:GetAttribute("ActivePreset") or 1)
+    local preset = ConsolePortUtility[activePreset]
+    if preset.Data then
+        preset.Data[self:GetID()] = nil
+    end
 end
 
 
@@ -809,32 +871,54 @@ function Utility:OnNewRotation(value)
 	self.Runes:SetRotation(value)
 end
 
-function Utility:OnRefresh(size)
-	for index, info in pairs(ConsolePortUtility) do
-		local actionButton = self.Buttons[index]
-		if actionButton and info.action then
-			actionButton:SetAttribute('autoassigned', info.autoassigned)
-			actionButton:SetAttribute('type', info.action)
-			actionButton:SetAttribute('cursorID', info.cursorID)
-			actionButton:SetAttribute("mountID", info.mountID)
-			actionButton:SetAttribute(info.action, info.value)
-			actionButton:Show()
-		end
-	end
+function Utility:ClearButtons()
+    self.clearing = true  -- enable silent mode
 
-	self.autoExtra = db.Settings.autoExtra
+    for _, actionButton in ipairs(self.Buttons) do
+        actionButton:SetAttribute('autoassigned', nil)
+        actionButton:SetAttribute('type', nil)
+        actionButton:SetAttribute('cursorID', nil)
+        actionButton:SetAttribute('mountID', nil)
+        actionButton:SetAttribute('item', nil) 
+		actionButton.Count:SetText()
+    end
+
+    self.clearing = false -- back to normal
+end
+
+function Utility:OnRefresh(size)   
+	 -- Iterate through all buttons and reset them
+    self:ClearButtons()
+
+	local activePreset = ConsolePortUtility[tonumber(Utility:GetAttribute("ActivePreset") or 1)]
+    if not activePreset or not activePreset.Data then return end
+
+    for index, info in pairs(activePreset.Data) do
+        local actionButton = self.Buttons[index]
+        if actionButton and info.action then
+            actionButton:SetAttribute('autoassigned', info.autoassigned)
+            actionButton:SetAttribute('type', info.action)
+            actionButton:SetAttribute('cursorID', info.cursorID)
+            actionButton:SetAttribute('mountID', info.mountID)
+            actionButton:SetAttribute(info.action, info.value)
+            actionButton:Show()
+        end
+    end
+
+
+	local autoExtra = activePreset.Autoassign
 	self.frameScale = db.Settings.utilityRingScale or 1
 	self:SetScale(self.frameScale)
 
 	self.Runes:SetSize(448 + (8 * size), 448 + (8 * size))
 	self.Full:SetTexture([[Interface\AddOns\ConsolePort\Textures\Utility\UtilityGlow]]..size)
 
-	if self.autoExtra then
+	if autoExtra then
 		ConsolePort:RunOOC(UpdateQuestItems)
 	end
 
 	self:SetCursorDrop(true)
-	self:SetExtraButtonDrop(self.autoExtra)
+	self:SetExtraButtonDrop(autoExtra)
 	
 	for _, event in pairs({
 		'ACTIONBAR_UPDATE_COOLDOWN',
@@ -851,13 +935,76 @@ function Utility:OnRefresh(size)
 	}) do pcall(self.RegisterEvent, self, event) end
 end
 
+function Utility:GetBindingForSet(setID)
+	return ('CLICK ConsolePortUtilityToggle:%s'):format(self:GetBindingSuffixForSet(setID));
+end
+
+function Utility:GetBindingSuffixForSet(setID)
+	return (tonumber(setID) == 1 and 'LeftButton' or tostring(setID));
+end
+
 
 ---------------------------------------------------------------
-function ConsolePort:AddUtilityAction(actionType, value)
-	if actionType and value then
-		AddAction(actionType, value)
-	end
+
+function ConsolePort:AddUtilityAction(actionType, value, presetID)
+    if not (actionType and value) then return end
+
+    presetID = presetID or tonumber(Utility:GetAttribute("ActivePreset") or 1)
+
+    local preset = ConsolePortUtility[presetID]
+    if not preset then return end
+
+    preset.Data = preset.Data or {}
+
+    local count = 0
+    for _ in pairs(preset.Data) do count = count + 1 end
+    if count >= 8 then 
+        return
+    end
+
+    for slot, info in pairs(preset.Data) do
+        if info.action == actionType then
+            if (actionType == "item"  and info.cursorID == tonumber(value)) or
+               (actionType == "mount" and info.mountID == tonumber(value)) or
+               (info.value == value) then
+                if presetID == tonumber(Utility:GetAttribute("ActivePreset") or 1) then
+                    Animation:ShowNewAction(Utility.Buttons[slot])
+                else
+                    Animation:ShowPresetAction(presetID, slot)
+                end
+                return
+            end
+        end
+    end
+
+    local freeSlot
+    for i = 1, 8 do
+        if not preset.Data[i] then
+            freeSlot = i
+            break
+        end
+    end
+    if not freeSlot then return end
+
+    preset.Data[freeSlot] = {
+        action       = actionType,
+        value        = value,
+        autoassigned = false,
+        cursorID     = (actionType == "item") and tonumber(value) or nil,
+        mountID      = (actionType == "mount") and tonumber(value) or nil,
+    }
+
+    local activePreset = tonumber(Utility:GetAttribute("ActivePreset") or 1)
+    if presetID == activePreset then
+        Utility:OnRefresh(#Utility.Buttons)
+        if Utility.Buttons[freeSlot] then
+            Animation:ShowNewAction(Utility.Buttons[freeSlot])
+        end
+    else
+        Animation:ShowPresetAction(presetID, freeSlot)
+    end
 end
+
 
 function ConsolePort:SetupUtilityRing()
 	if not InCombatLockdown() and Utility:GetAttribute("initialized") ~= true then 
@@ -867,6 +1014,218 @@ function ConsolePort:SetupUtilityRing()
 	end
 end
 
+----------------------------------------------------------------
+
+function ConsolePort:SetupUtilityBindings()
+	ConsolePortUtility = ConsolePortUtility or {}
+
+	if(not db) then
+		return
+	end
+	if( not db.Bindings) then
+		return
+	end 
+
+	if next(ConsolePortUtility) == nil then
+    	ConsolePortUtility[1] = { Name = "Utility Ring", Icon = [[Interface\AddOns\ConsolePort\Textures\Icons\Ring]] }
+	end
+
+    for profileID, preset in pairs(ConsolePortUtility) do
+        if preset.Binding and preset.Binding.Button then
+            local buttonName = preset.Binding.Button
+            local modifier   = preset.Binding.Modifier or ""
+            local action = Utility:GetBindingForSet(profileID)
+			 
+            -- ensure entry exists in db.Bindings (copied from default if missing)
+            db.Bindings[buttonName] = db.Bindings[buttonName] or {}
+
+            -- overwrite just this one modifier
+            if action and action ~= "" then
+                db.Bindings[buttonName][modifier] = action
+            end
+        end
+    end
+
+    self:LoadBindingSet(db.Bindings, true)
+end
+
+function ConsolePort:GetUtilityRingIcon(binding)
+    if binding == 'CLICK ConsolePortUtilityToggle:LeftButton' then
+        return (ConsolePortUtility[1] and ConsolePortUtility[1].Icon) or "Interface\\AddOns\\ConsolePort\\Textures\\Icons\\Ring"
+    end
+
+    local bindingID = strmatch(binding, 'CLICK ConsolePortUtilityToggle:(%d+)')
+    if bindingID then
+        for presetID, preset in ipairs(ConsolePortUtility) do
+            if presetID == tonumber(bindingID) and preset.Icon then
+                return preset.Icon
+            end
+        end
+    end
+end
+
+function ConsolePort:GetUtilityRingName(binding)
+    if binding == 'CLICK ConsolePortUtilityToggle:LeftButton' then
+        return (ConsolePortUtility[1] and ConsolePortUtility[1].Name) or db.CUSTOMBINDS.CP_UTILITYBELT
+    end
+
+    local bindingID = strmatch(binding, 'CLICK ConsolePortUtilityToggle:(%d+)')
+    if bindingID then
+        for presetID, preset in ipairs(ConsolePortUtility) do
+            if presetID == tonumber(bindingID) and preset.Name then
+                return preset.Name
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------
+-- Simple Animation System
+-- Supports Alpha + Scale animations with OnPlay, OnStop, OnFinished
+-- Implements Play, Stop, Finish, IsPlaying
+----------------------------------------------------------------
+local function CreateSimpleAnimationGroup(parent)
+    local group = {
+        parent = parent,
+        anims = {},
+        _scripts = {},   -- event -> handler
+        _playing = false,
+        _elapsed = 0,
+        _maxTime = 0,
+    }
+
+    -- Event API ------------------------------------------------
+    function group:SetScript(evt, fn) self._scripts[evt] = fn end
+    function group:HookScript(evt, fn)
+        local prev = self._scripts[evt]
+        if prev then
+            self._scripts[evt] = function(self, ...) prev(self, ...); fn(self, ...) end
+        else
+            self._scripts[evt] = fn
+        end
+    end
+    function group:IsPlaying() return self._playing end
+
+    -- Anim factory ---------------------------------------------
+    function group:CreateAnimation(animType)
+        local anim = {
+            type = animType,
+            parent = self.parent,
+            from = {},
+            to   = {},
+            duration = 0.5,
+            smoothing = nil,
+            startDelay = 0,
+        }
+
+        -- Common setters
+        function anim:SetDuration(d) self.duration = d end
+        function anim:SetSmoothing(s) self.smoothing = s end -- "IN" | "OUT"
+        function anim:SetStartDelay(d) self.startDelay = d end
+
+        -- Alpha
+        function anim:SetFromAlpha(a) self.from.alpha = a end
+        function anim:SetToAlpha(a)   self.to.alpha   = a end
+
+        -- Scale
+        function anim:SetFromScale(x, y) self.from.sx, self.from.sy = x, y end
+        function anim:SetToScale(x, y)   self.to.sx,   self.to.sy   = x, y end
+
+        table.insert(self.anims, anim)
+        return anim
+    end
+
+    -- Helpers --------------------------------------------------
+    local function ease(progress, mode)
+        if mode == "IN"  then return progress * progress
+        elseif mode == "OUT" then return 1 - (1 - progress) * (1 - progress)
+        else return progress end
+    end
+
+    local driver
+
+    -- Internal reset to from-values
+    local function resetFromValues(self)
+        for _, a in ipairs(self.anims) do
+            if a.type == "Alpha" and a.from.alpha ~= nil then
+                self.parent:SetAlpha(a.from.alpha)
+            elseif a.type == "Scale" and a.from.sx ~= nil then
+                self.parent:SetScale(a.from.sx) -- uniform only
+            end
+        end
+    end
+
+    -- Control --------------------------------------------------
+    function group:Play()
+        if self._playing then self:Stop() end
+        self._playing = true
+        self._elapsed = 0
+
+        -- compute max span
+        local maxT = 0
+        for _, a in ipairs(self.anims) do
+            local span = (a.startDelay or 0) + (a.duration or 0)
+            if span > maxT then maxT = span end
+        end
+        self._maxTime = maxT
+
+        resetFromValues(self)
+
+        if self._scripts.OnPlay then pcall(self._scripts.OnPlay, self) end
+
+        if not driver then driver = CreateFrame("Frame", nil, self.parent) end
+
+        driver:SetScript("OnUpdate", function(_, delta)
+            if not self._playing then return end
+            self._elapsed = self._elapsed + delta
+            local parent = self.parent
+
+            for _, a in ipairs(self.anims) do
+                local t = self._elapsed - (a.startDelay or 0)
+                if t >= 0 and t <= (a.duration or 0) then
+                    local p = ease(t / a.duration, a.smoothing)
+
+                    if a.type == "Alpha" then
+                        local from = a.from.alpha or parent:GetAlpha() or 1
+                        local to   = a.to.alpha   or from
+                        parent:SetAlpha(from + (to - from) * p)
+
+                    elseif a.type == "Scale" then
+                        local from = a.from.sx or parent:GetScale() or 1
+                        local to   = a.to.sx   or from
+                        parent:SetScale(from + (to - from) * p)
+                    end
+                end
+            end
+
+            if self._elapsed >= self._maxTime then
+                self:Finish()
+            end
+        end)
+    end
+
+    function group:Stop()
+        if not self._playing then return end
+        self._playing = false
+        if driver then driver:SetScript("OnUpdate", nil) end
+        if self._scripts.OnStop then pcall(self._scripts.OnStop, self) end
+    end
+
+    function group:Finish()
+        for _, a in ipairs(self.anims) do
+            if a.type == "Alpha" and a.to.alpha ~= nil then
+                self.parent:SetAlpha(a.to.alpha)
+            elseif a.type == "Scale" and a.to.sx ~= nil then
+                self.parent:SetScale(a.to.sx)
+            end
+        end
+        self._playing = false
+        if driver then driver:SetScript("OnUpdate", nil) end
+        if self._scripts.OnFinished then pcall(self._scripts.OnFinished, self) end
+    end
+
+    return group
+end
 
 
 ---------------------------------------------------------------
@@ -886,7 +1245,7 @@ Utility:HookScript('OnUpdate', Utility.OnUpdateDisplay)
 ---------------------------------------------------------------
 Animation:SetSize(64, 64)
 Animation:SetFrameStrata('TOOLTIP')
-Animation.Group = Animation:CreateAnimationGroup()
+Animation.Group = CreateSimpleAnimationGroup(Animation) --Animation:CreateAnimationGroup()
 ---------------------------------------------------------------
 Animation.Icon = Animation:CreateTexture(nil, 'ARTWORK')
 Animation.Quest = Animation:CreateTexture(nil, 'OVERLAY')
@@ -894,12 +1253,12 @@ Animation.Border = Animation:CreateTexture(nil, 'OVERLAY')
 Animation.Scale = Animation.Group:CreateAnimation('Scale')
 Animation.Fade = Animation.Group:CreateAnimation('Alpha')
 ---------------------------------------------------------------
---Animation.Scale:SetToScale(1, 1)
---Animation.Scale:SetFromScale(2, 2)
+Animation.Scale:SetToScale(1, 1)
+Animation.Scale:SetFromScale(2, 2)
 Animation.Scale:SetDuration(0.5)
 Animation.Scale:SetSmoothing('IN')
---Animation.Fade:SetFromAlpha(1)
---Animation.Fade:SetToAlpha(0)
+Animation.Fade:SetFromAlpha(1)
+Animation.Fade:SetToAlpha(0)
 Animation.Fade:SetSmoothing('OUT')
 Animation.Fade:SetStartDelay(3)
 Animation.Fade:SetDuration(0.2)
@@ -910,7 +1269,6 @@ Animation.Border:SetAllPoints(Animation)
 ---------------------------------------------------------------
 Animation.Icon:SetSize(64, 64)
 Animation.Icon:SetPoint('CENTER', 0, 0)
---Animation.Icon:SetMask('Interface\\AddOns\\ConsolePort\\Textures\\Button\\Mask')
 ---------------------------------------------------------------
 Animation.Quest:SetTexture('Interface\\AddOns\\ConsolePort\\Textures\\QuestButton')
 Animation.Quest:SetPoint('CENTER', 0, 0)
@@ -934,8 +1292,6 @@ Animation.Spell:SetFrameStrata('TOOLTIP')
 Animation.Spell:SetPoint('CENTER', Animation.Icon, 'CENTER', -4, 0)
 Animation.Spell:SetSize(176, 176)
 Animation.Spell:SetAlpha(0)
---Animation.Spell:SetDisplayInfo(66673) --(42486)
---Animation.Spell:SetCamDistanceScale(2)
 Animation.Spell:SetFrameLevel(1)
 ---------------------------------------------------------------
 Animation.Group:SetScript('OnFinished', AnimateOnFinished)

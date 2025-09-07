@@ -59,20 +59,31 @@ function ConsolePort:LoadHookScripts()
 				elseif	ownerParent == LootFrame then
 						self:AddLine(db.CLICK_LOOT, 1,1,1)
 				-- This item is in a bag?
-				elseif owner and owner.JunkIcon then
-					-- This is an item in the bag while talking to a merchant?
-					if 	MerchantFrame:IsVisible() and not IsEquippedItem(item) then 
-						clickString = db.CLICK.SELL
-					-- This item is equippable?
-					elseif 	IsEquippableItem(item) then -- and not IsEquippedItem(item) then
-						self:AddLine(db.CLICK.COMPARE, 1,1,1)
-						clickString = db.CLICK.EQUIP
-					-- This item is usable?
-					elseif 	GetItemSpell(item) then 
-						clickString = db.CLICK.USE
+				else
+					local bag, slot
+					if owner and owner:GetParent() and owner:GetID() then
+						bag = owner:GetParent():GetID()
+						slot = owner:GetID()
 					end
-					self:AddLine(db.CLICK.PICKUP_ITEM, 1,1,1)
-					self:AddLine(db.CLICK.ITEM_MENU, 1,1,1)
+
+					if bag and slot and GetContainerItemID(bag, slot) then
+						-- This is an item in the bag while talking to a merchant
+						if MerchantFrame:IsVisible() and not IsEquippedItem(item) then
+							clickString = db.CLICK.SELL
+
+						-- This item is equippable
+						elseif IsEquippableItem(item) then
+							self:AddLine(db.CLICK.COMPARE, 1, 1, 1)
+							clickString = db.CLICK.EQUIP
+
+						-- This item is usable
+						elseif GetItemSpell(item) then
+							clickString = db.CLICK.USE
+						end
+
+						self:AddLine(db.CLICK.PICKUP_ITEM, 1, 1, 1)
+						self:AddLine(db.CLICK.ITEM_MENU, 1, 1, 1)
+					end
 				end
 				if 	GetItemCount(item, false) ~= 0 or
 					MerchantFrame:IsVisible() then
@@ -93,9 +104,9 @@ function ConsolePort:LoadHookScripts()
 	GameTooltip:HookScript('OnTooltipSetSpell', function(self)
 		if not InCombatLockdown() then
 			local owner = self:GetOwner()
-			local id, displayID = CPAPI.IsAscension() and owner.spell or SpellBook_GetSpellID(owner:GetID());  
-			local SpellBookOwner = CPAPI.IsAscension() and AscensionSpellbookFrameContentSpells or SpellBookFrame
-			local SpellBookFrame = CPAPI.IsAscension() and AscensionSpellbookFrame or SpellBookFrame 
+			local id, displayID = CPAPI.IsCustomClient() and owner.spell or SpellBook_GetSpellID(owner:GetID());  
+			local SpellBookOwner = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellBookOwner") or SpellBookFrame
+			local SpellBookFrame = CPAPI.IsCustomClient() and CPAPI.GetCustomFrame("SpellBookFrame") or SpellBookFrame 
 
 			if core:IsCurrentNode(owner) then
 				if 	owner and owner:GetParent() == SpellBookOwner and not IsPassiveSpell(id, SpellBookFrame.bookType) then 

@@ -30,15 +30,16 @@ function Helper:OnShow()
 		self:UnregisterAllEvents()
 		self:Hide()
 	else
+		self:EnableKeyboard(true)
 		self.blockInput = false
 		self.cache = db.table.copy(db.Bindings)
 		self.manifest = Core:GetBindings(true)
 		local loc = db.TUTORIAL.BIND
 		local _type, data, subType, subData = GetCursorInfo()
 		local name, texture, customDesc, pcallOK, link, itemType, _
-		if ( _type == 'item' ) then
+		if ( _type == 'item' ) then 
 			pcallOK, name, link, _, _, _, _, _, _, itemType, texture = pcall(GetItemInfo, data)
-			name = name or loc.ITEM
+			name = name or loc.ITEM 
 			if itemType == 'INVTYPE_BAG' then
 				self:ShowBags()
 				self.blockInput = true
