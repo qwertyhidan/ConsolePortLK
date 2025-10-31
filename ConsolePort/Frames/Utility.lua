@@ -23,6 +23,12 @@ local 	Utility, Tooltip, Animation, AniCircle =
 		CreateFrame('Frame', 'ConsolePortUtilityAnimation', UIParent),
 		CreateFrame('Frame', 'ConsolePortUtilityAnimationCircle', UIParent)
 ---------------------------------------------------------------
+local DebugUtility = _G.ConsolePortUtilityDebugPrint or function(...)
+	if not _G.ConsolePortUtilityDebug then return end
+	print('|cff33ff99CP Utility|r', ...)
+end
+_G.ConsolePortUtilityDebugPrint = DebugUtility
+---------------------------------------------------------------
 local red, green, blue = db.Atlas.GetCC()
 local colMul = 1 + ( 1 - (( red + green + blue ) / 3) )
 ---------------------------------------------------------------
@@ -526,6 +532,7 @@ end
 
 function Utility:Initialize(ctype, ctemplate, cmixin)
 	if self:GetAttribute('initialized') then return end
+	DebugUtility('Utility:Initialize', 'ctype='..tostring(ctype), 'template='..tostring(ctemplate))
 	----------------------------------
 	self.cmixin = cmixin;
 	self.ctype  = ctype or 'Button';
@@ -550,6 +557,7 @@ function Utility:Disable()
 end
 
 function Utility:Refresh()
+	DebugUtility('Utility:Refresh')
 	local size = self.HANDLE:GetIndexSize()
 	self:SetAttribute('size', size)
 	self:SetAttribute('fraction', rad(360 / size))
@@ -650,6 +658,7 @@ local abs = math.abs
 
 function Utility:SetRotation(value)
 	if not value then return end
+	DebugUtility('Utility:SetRotation', 'value='..tostring(value))
 	self:OnNewRotation(value)
 end
 
@@ -682,6 +691,7 @@ end
 
 
 function Utility:OnButtonFocused(index)
+	DebugUtility('Utility:OnButtonFocused', 'index='..tostring(index))
 	local button = self:GetAttribute(index)
 	local focused = self.oldID and self:GetAttribute(self.oldID)
 	if  focused then
@@ -887,6 +897,7 @@ function Utility:ClearButtons()
 end
 
 function Utility:OnRefresh(size)   
+	DebugUtility('Utility:OnRefresh', 'size='..tostring(size), 'activePreset='..tostring(Utility:GetAttribute(\"ActivePreset\")))
 	 -- Iterate through all buttons and reset them
     self:ClearButtons()
 
