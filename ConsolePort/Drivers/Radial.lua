@@ -2,6 +2,21 @@
 -- Radial.lua: Handles radial input (left stick & movement)
 ---------------------------------------------------------------
 local HANDLE, _, db = ConsolePortRadialHandler, ...
+
+--[[
+Utility ring debugging -------------------------------------------------
+Enable by running the following in-game macro before testing:
+
+    /run ConsolePortUtilityDebug=true
+
+This file will honour the flag by emitting debug output that helps
+pinpoint where the secure snippets stop executing. The global helper is
+shared with other modules so they can piggy-back on the same toggle.
+--]]
+_G.ConsolePortUtilityDebugPrint = _G.ConsolePortUtilityDebugPrint or function(...)
+    if not _G.ConsolePortUtilityDebug then return end
+    print('|cff33ff99CP Utility|r', ...)
+end
 ---------------------------------------------------------------
 
 local DEFAULT_BINDINGS, LOCAL_BINDINGS = {
@@ -226,24 +241,28 @@ end
 local ENV_RADIAL = {
 	---------------------------------------------------------------
 	['bits'] = BITS_TO_ANGLE_SECURE;
-	['onkey'] = [[
-		local key, down = ... 
-		self:SetAttribute(tostring('KEY'..key), down and true or nil) 
+        ['onkey'] = [[
+                local key, down = ...
+                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onkey', 'key='..tostring(key), 'down='..tostring(down)) end
+                self:SetAttribute(tostring('KEY'..key), down and true or nil)
 
-		local newindex = control:RunFor(self, self:GetAttribute('bits'))
-		local index = tostring(newindex)
-		self:SetAttribute('index', index)
-		--control:RunAttribute('_setindex', control:RunAttribute('_bits'))
+                local newindex = control:RunFor(self, self:GetAttribute('bits'))
+                local index = tostring(newindex)
+                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onkey', 'new index', tostring(index)) end
+                self:SetAttribute('index', index)
+                --control:RunAttribute('_setindex', control:RunAttribute('_bits'))
 
-		control:CallMethod('CallMethodFromFrame', self:GetName(), 'OnButtonFocused', index)
+                control:CallMethod('CallMethodFromFrame', self:GetName(), 'OnButtonFocused', index)
 
-		local button = self:GetFrameRef(index)
-		if button then
-			self:SetBindingClick(true, 'BUTTON1', button, 'RightButton')
-		else
-			self:ClearBinding('BUTTON1')
-		end
-	]];
+                local button = self:GetFrameRef(index)
+                if button then
+                        self:SetBindingClick(true, 'BUTTON1', button, 'RightButton')
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onkey', 'binding BUTTON1 to', button:GetName()) end
+                else
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onkey', 'clear BUTTON1 binding, no button for index') end
+                        self:ClearBinding('BUTTON1')
+                end
+        ]];
 	---------------------------------------------------------------
 	['_getsize'] = [[
 		return self:GetAttribute('size') or 0
@@ -269,44 +288,53 @@ local ENV_RADIAL = {
 		control:RunAttribute('_onextrabar', newstate)
 	]];
 	---------------------------------------------------------------
-	['_preclick'] = [[
-		self:ClearBinding('BUTTON1')
-		control:RunAttribute('_onuse', down, button)
-		self:SetAttribute('type', nil)  
-		 
-		if not down then
-			local button = self:GetFrameRef(control:RunAttribute('_getindex'))
-			if button then
-				local actionType = button:GetAttribute('type')
-				local actionID   = actionType and button:GetAttribute(actionType)
-				if actionID then
-					self:SetAttribute('type', actionType)
-					self:SetAttribute(actionType, actionID)
-				end
-			end
-			control:RunAttribute('_setindex', nil)
-		end
-		
-	]];
+        ['_preclick'] = [[
+                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_preclick', 'down='..tostring(down), 'button='..tostring(button)) end
+                self:ClearBinding('BUTTON1')
+                control:RunAttribute('_onuse', down, button)
+                self:SetAttribute('type', nil)
+
+                if not down then
+                        local button = self:GetFrameRef(control:RunAttribute('_getindex'))
+                        if button then
+                                local actionType = button:GetAttribute('type')
+                                local actionID   = actionType and button:GetAttribute(actionType)
+                                if actionID then
+                                        self:SetAttribute('type', actionType)
+                                        self:SetAttribute(actionType, actionID)
+                                end
+                        else
+                                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_preclick release', 'no button for index', tostring(control:RunAttribute('_getindex'))) end
+                        end
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_preclick release', 'type='..tostring(self:GetAttribute('type'))) end
+                        control:RunAttribute('_setindex', nil)
+                end
+
+        ]];
 	---------------------------------------------------------------
-	['_onuse'] = [[
-		local istoggled, button = ...
-		self:SetAttribute('toggled', istoggled)
+        ['_onuse'] = [[
+                local istoggled, button = ...
+                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onuse', 'down='..tostring(istoggled), 'button='..tostring(button)) end
+                self:SetAttribute('toggled', istoggled)
 
-		if(button) then 
-			self:SetAttribute('ActivePreset', button == "LeftButton" and 1 or button)
-		end
+                if(button) then
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onuse', 'activating preset for button', tostring(button)) end
+                        self:SetAttribute('ActivePreset', button == "LeftButton" and 1 or button)
+                end
 
-		if self:GetAttribute('toggled') then
-			control:RunFor(HANDLE, HANDLE:GetAttribute('hBind'), self:GetName())
-			self:Show()
-		else
-			control:RunFor(HANDLE, HANDLE:GetAttribute('hClear'), self:GetName())
-			self:Hide()
-			control:RunAttribute('_oncursor', nil)
-			wipe(BIT)
-		end
-	]];
+                if self:GetAttribute('toggled') then
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onuse', 'show ring') end
+                        control:RunFor(HANDLE, HANDLE:GetAttribute('hBind'), self:GetName())
+                        self:Show()
+                else
+                        if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onuse', 'hide ring') end
+                        control:RunFor(HANDLE, HANDLE:GetAttribute('hClear'), self:GetName())
+                        self:Hide()
+                        control:RunAttribute('_oncursor', nil)
+                        wipe(BIT)
+                end
+                if ConsolePortUtilityDebugPrint then ConsolePortUtilityDebugPrint('_onuse', 'toggled now', tostring(self:GetAttribute('toggled'))) end
+        ]];
 	---------------------------------------------------------------
 	['_oncursor'] = [[
 		local hasItem = ...
